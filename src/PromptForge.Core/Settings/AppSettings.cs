@@ -25,7 +25,7 @@ public sealed class HotkeySettings
     public string OptimizeSelection { get; set; } = "Ctrl+Alt+Shift+P";
 
     /// <summary>Tap to start/stop dictation, or hold to talk and release to finish.</summary>
-    public string Voice { get; set; } = "Ctrl+Alt+Space";
+    public string Voice { get; set; } = "Ctrl+Alt+D";
 }
 
 public sealed class VoiceSettings

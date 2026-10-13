@@ -16,7 +16,8 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
     <ApplicationIcon>Assets\PromptForge.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <Version>0.2.1</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>PromptForge</Product>
     <Description>Rewrites rough prompts into clear ones on a hotkey.</Description>
 

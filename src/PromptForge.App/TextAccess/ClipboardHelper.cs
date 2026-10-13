@@ -111,3 +111,4 @@ internal static class ClipboardText
         return Sequence != before;
     }
 }
+

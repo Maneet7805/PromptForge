@@ -20,16 +20,24 @@ internal static class Program
         if (args.Length > 0 && args[0] == "--eval")
             return EvalCommand.Run(args[1..]);
 
-        using var mutex = new Mutex(initiallyOwned: true, MutexName, out var isFirst);
-        if (!isFirst)
-        {
-            // Already running: ask that instance to open its settings window, then quit.
-            if (EventWaitHandle.TryOpenExisting(ShowSettingsEventName, out var existing))
-            {
-                existing.Set();
-                existing.Dispose();
-            }
+        // A copy run from anywhere else (e.g. the dist folder) offers to install or update itself.
+        if (!SelfInstaller.IsRunningFromInstallDir && !args.Contains("--portable") && SelfInstaller.OfferInstall())
             return 0;
+
+        using var mutex = new Mutex(initiallyOwned: false, MutexName);
+        if (!TryAcquire(mutex, TimeSpan.Zero))
+        {
+            // Another copy is running. If it's on its way out (an update just restarted us), wait for it;
+            // otherwise ask it to show its settings window and quit.
+            if (!TryAcquire(mutex, TimeSpan.FromSeconds(3)))
+            {
+                if (EventWaitHandle.TryOpenExisting(ShowSettingsEventName, out var existing))
+                {
+                    existing.Set();
+                    existing.Dispose();
+                }
+                return 0;
+            }
         }
 
         Application.ThreadException += (_, e) => Log.Error("unhandled UI exception", e.Exception);
@@ -37,18 +45,45 @@ internal static class Program
 
         var background = args.Contains("--background");
         using var showSettings = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsEventName);
+        using var exitRequested = new EventWaitHandle(false, EventResetMode.AutoReset, SelfInstaller.ExitEventName);
         var uiContext = new WindowsFormsSynchronizationContext();
         SynchronizationContext.SetSynchronizationContext(uiContext);
         var context = new TrayContext(background);
+
         var listener = new Thread(() =>
         {
-            while (showSettings.WaitOne())
-                uiContext.Post(_ => context.OnSecondInstance(), null);
+            var handles = new WaitHandle[] { showSettings, exitRequested };
+            while (true)
+            {
+                var signalled = WaitHandle.WaitAny(handles);
+                if (signalled == 0)
+                {
+                    uiContext.Post(_ => context.OnSecondInstance(), null);
+                }
+                else
+                {
+                    uiContext.Post(_ => context.ExitThread(), null);
+                    return;
+                }
+            }
         })
-        { IsBackground = true, Name = "SecondInstanceListener" };
+        { IsBackground = true, Name = "InstanceSignals" };
         listener.Start();
 
         Application.Run(context);
+        mutex.ReleaseMutex();
         return 0;
+    }
+
+    private static bool TryAcquire(Mutex mutex, TimeSpan timeout)
+    {
+        try
+        {
+            return mutex.WaitOne(timeout);
+        }
+        catch (AbandonedMutexException)
+        {
+            return true; // previous owner was killed; we own it now
+        }
     }
 }

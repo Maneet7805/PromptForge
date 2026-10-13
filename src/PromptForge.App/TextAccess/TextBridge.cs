@@ -37,9 +37,10 @@ internal sealed record ReplaceResult(ReplaceOutcome Outcome, string? Reason = nu
 internal static class TextBridge
 {
     private static readonly TimeSpan CopyTimeout = TimeSpan.FromMilliseconds(700);
+    private static DelayedClipboard? _delayedClipboard;
 
-    /// <summary>Waits for the paste to be consumed before the user's clipboard is put back.</summary>
-    private static readonly TimeSpan PasteSettle = TimeSpan.FromMilliseconds(450);
+    /// <summary>Created lazily on the UI thread (it owns a hidden window that answers clipboard requests).</summary>
+    private static DelayedClipboard DelayedClipboardInstance => _delayedClipboard ??= new DelayedClipboard();
 
     public static async Task<CaptureResult> CaptureAsync(TargetInfo target, CaptureMode mode)
     {
@@ -82,7 +83,8 @@ internal static class TextBridge
 
     /// <summary>
     /// Puts the accepted text into the original field. Falls back to copying it when the window has
-    /// gone, focus can't be restored, or the field changed while the user was reviewing.
+    /// gone, focus can't be restored, the field changed while the user was reviewing, or the paste
+    /// can't be confirmed. "Replaced" is only reported after the field has been re-read and matches.
     /// </summary>
     public static async Task<ReplaceResult> ReplaceAsync(TargetInfo target, CaptureMode mode, string original, string replacement)
     {
@@ -91,6 +93,10 @@ internal static class TextBridge
 
         if (!target.IsAlive)
             return CopyInstead(replacement, "The original window was closed, so the prompt was copied instead.");
+
+        // The user may still be holding Ctrl from Ctrl+Enter.
+        if (!await Keyboard.WaitForModifiersReleasedAsync(0, TimeSpan.FromMilliseconds(800)))
+            Keyboard.ReleaseStuckModifiers();
 
         if (!await Foreground.BringToFrontAsync(target.Hwnd))
             return CopyInstead(replacement, "Couldn't switch back to the original window, so the prompt was copied instead.");
@@ -101,31 +107,46 @@ internal static class TextBridge
             if (mode == CaptureMode.WholeField)
             {
                 // Re-read the field: if it changed during review, don't overwrite the user's new text.
-                var before = ClipboardText.Sequence;
-                Keyboard.SendCtrlChord('A');
-                await Task.Delay(40);
-                Keyboard.SendCtrlChord('C');
-                var copied = await ClipboardText.WaitForChangeAsync(before, CopyTimeout);
-                var current = copied ? ClipboardText.Read() : null;
+                var current = await CopyFieldAsync();
                 if (current is null || Normalize(current) != Normalize(original))
                 {
+                    Keyboard.CollapseSelectionToEnd(); // our select-all must not leave the user's new text exposed
                     snapshot.Restore();
                     return CopyInstead(replacement, "The text in the field changed while you were reviewing, so it wasn't replaced. The improved prompt is on your clipboard.");
                 }
             }
 
-            if (Win32.GetForegroundWindow() != target.Hwnd)
+            for (var attempt = 1; attempt <= 2; attempt++)
             {
-                snapshot.Restore();
-                return CopyInstead(replacement, "Focus moved to another window, so the prompt was copied instead.");
+                if (Win32.GetForegroundWindow() != target.Hwnd)
+                {
+                    snapshot.Restore();
+                    return CopyInstead(replacement, "Focus moved to another window, so the prompt was copied instead.");
+                }
+
+                var consumed = await PasteAsync(replacement, slow: attempt > 1);
+                if (mode != CaptureMode.WholeField)
+                {
+                    Log.Info($"paste attempt={attempt} consumed={consumed} verified=n/a");
+                    snapshot.Restore();
+                    return new ReplaceResult(ReplaceOutcome.Replaced);
+                }
+
+                // Confirm by reading the field back (this also re-selects it, ready for a second attempt).
+                var after = await CopyFieldAsync();
+                var verified = after is not null && SameText(after, replacement);
+                Log.Info($"paste attempt={attempt} consumed={consumed} verified={verified}");
+                if (verified)
+                {
+                    Keyboard.CollapseSelectionToEnd();
+                    snapshot.Restore();
+                    return new ReplaceResult(ReplaceOutcome.Replaced);
+                }
             }
 
-            ClipboardText.WritePrivate(replacement);
-            await Task.Delay(30);
-            Keyboard.SendCtrlChord('V');
-            await Task.Delay(PasteSettle);
+            Keyboard.CollapseSelectionToEnd();
             snapshot.Restore();
-            return new ReplaceResult(ReplaceOutcome.Replaced);
+            return CopyInstead(replacement, "This app didn't accept the pasted text, so the improved prompt is on your clipboard. Paste it with Ctrl+V.");
         }
         catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException)
         {
@@ -144,10 +165,8 @@ internal static class TextBridge
         var snapshot = ClipboardSnapshot.Capture();
         try
         {
-            ClipboardText.WritePrivate(text);
-            await Task.Delay(30);
-            Keyboard.SendCtrlChord('V');
-            await Task.Delay(PasteSettle);
+            var consumed = await PasteAsync(text, slow: false);
+            Log.Info($"insert consumed={consumed}");
             return new ReplaceResult(ReplaceOutcome.Replaced);
         }
         finally
@@ -155,6 +174,46 @@ internal static class TextBridge
             snapshot.Restore();
         }
     }
+
+    /// <summary>
+    /// Pastes text and waits until the target app has actually read it from the clipboard. Some apps
+    /// (Windows 11 Notepad, other WinUI apps) read the clipboard asynchronously after Ctrl+V; restoring
+    /// the user's clipboard too early makes them paste the old contents instead.
+    /// </summary>
+    private static async Task<bool> PasteAsync(string text, bool slow)
+    {
+        var clipboard = DelayedClipboardInstance;
+        if (!clipboard.Offer(text))
+        {
+            // Clipboard locked by another app: fall back to an immediate copy.
+            ClipboardText.WritePrivate(text);
+            await Task.Delay(slow ? 120 : 40);
+            Keyboard.SendCtrlChord('V');
+            await Task.Delay(slow ? 1500 : 900);
+            return false;
+        }
+        await Task.Delay(slow ? 120 : 40);
+        var consumedTask = clipboard.Arm();
+        Keyboard.SendCtrlChord('V');
+        var consumed = await Task.WhenAny(consumedTask, Task.Delay(slow ? 3000 : 2000)) == consumedTask;
+        await Task.Delay(consumed ? 150 : 400);
+        return consumed;
+    }
+
+    /// <summary>Select-all + copy in the focused field; returns its text, or null if nothing could be copied.</summary>
+    private static async Task<string?> CopyFieldAsync()
+    {
+        var before = ClipboardText.Sequence;
+        Keyboard.SendCtrlChord('A');
+        await Task.Delay(40);
+        Keyboard.SendCtrlChord('C');
+        return await ClipboardText.WaitForChangeAsync(before, CopyTimeout) ? ClipboardText.Read() : null;
+    }
+
+    /// <summary>Compares ignoring whitespace and punctuation differences that editors introduce (smart quotes, bullets, CRLF).</summary>
+    internal static bool SameText(string a, string b) => LettersAndDigits(a) == LettersAndDigits(b);
+
+    private static string LettersAndDigits(string s) => new(s.Where(char.IsLetterOrDigit).ToArray());
 
     private static ReplaceResult CopyInstead(string text, string reason)
     {

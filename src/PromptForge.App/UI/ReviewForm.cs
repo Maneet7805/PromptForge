@@ -61,6 +61,7 @@ internal sealed class ReviewForm : Form
     private readonly Button _undoEdits = new() { Text = "Undo my edits", AutoSize = true, Enabled = false };
     private readonly Button _reject = new() { Text = "Keep original (Esc)", AutoSize = true };
     private readonly TableLayoutPanel _notesRow;
+    private readonly ToolTip _tooltip = new();
 
     public ReviewForm(ReviewContext ctx)
     {
@@ -104,7 +105,7 @@ internal sealed class ReviewForm : Form
         tabsHost.Controls.Add(_tabs);
         tabsHost.Controls.Add(_progress);
 
-        _notesRow = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 132, ColumnCount = 1, RowCount = 2, Padding = new Padding(8, 0, 8, 0) };
+        _notesRow = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 170, ColumnCount = 1, RowCount = 2, Padding = new Padding(8, 0, 8, 0) };
         _notesRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         _notesRow.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         _notesRow.Controls.Add(_notes, 0, 0);
@@ -224,8 +225,9 @@ internal sealed class ReviewForm : Form
 
         var seconds = result.Elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture);
         _status.Text = result.IsUnchanged
-            ? $"Already clear: no changes suggested · {result.Model} · {seconds} s"
-            : $"{result.TaskType} · {Describe(result.Verdict)} · {result.Model} · {seconds} s";
+            ? $"Already clear: no changes suggested · {seconds} s"
+            : $"{result.TaskType} · {Describe(result.Verdict)} · {seconds} s";
+        _tooltip.SetToolTip(_status, $"{result.Model} · {result.PromptTokens + result.CompletionTokens:N0} tokens · {result.Attempts} call(s)");
 
         _changes.Rtf = BuildDiffRtf(TextDiff.Compute(result.Original, result.Prompt), _changes.Font, _changes.ForeColor);
         RenderNotes(result, note);

@@ -35,8 +35,8 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _fallbackModel = new() { Width = 260 };
     private readonly TextBox _fallbackUrl = new() { Width = 360, PlaceholderText = "Base URL (custom/Ollama only)" };
     private readonly Dictionary<string, TextBox> _keys = [];
-    private readonly Label _testResult = new() { AutoSize = true, MaximumSize = new Size(560, 0) };
-    private readonly Label _providerNotes = new() { AutoSize = true, MaximumSize = new Size(560, 0), ForeColor = SystemColors.GrayText };
+    private readonly Label _testResult = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
+    private readonly Label _providerNotes = new() { AutoSize = true, MaximumSize = new Size(680, 0), ForeColor = SystemColors.GrayText };
 
     // Hotkeys
     private readonly HotkeyBox _hkOptimize = new() { Width = 200 };
@@ -61,8 +61,8 @@ internal sealed class SettingsForm : Form
         Text = "PromptForge settings";
         Icon = AppIcon.Get();
         StartPosition = FormStartPosition.CenterScreen;
-        Size = new Size(680, 620);
-        MinimumSize = new Size(620, 520);
+        Size = new Size(780, 660);
+        MinimumSize = new Size(700, 560);
         Font = new Font("Segoe UI", 9.5f);
 
         var tabs = new TabControl { Dock = DockStyle.Fill };
@@ -101,11 +101,11 @@ internal sealed class SettingsForm : Form
         foreach (var id in KeyProviders)
         {
             var preset = ProviderPresets.Get(id);
-            var box = new TextBox { Width = 300, UseSystemPasswordChar = true };
+            var box = new TextBox { Width = 280, UseSystemPasswordChar = true };
             _keys[id] = box;
             var remove = new Button { Text = "Remove", AutoSize = true };
             remove.Click += (_, _) => { _secrets.Set(id, null); box.Text = ""; box.PlaceholderText = "not set"; };
-            var controls = new List<Control> { new Label { Text = preset.DisplayName, Width = 170, Padding = new Padding(0, 4, 0, 0) }, box, remove };
+            var controls = new List<Control> { new Label { Text = preset.DisplayName, Width = 200, Padding = new Padding(0, 4, 0, 0) }, box, remove };
             if (preset.KeyUrl is { } url)
             {
                 var link = new LinkLabel { Text = "Get a key", AutoSize = true, Padding = new Padding(0, 4, 0, 0) };
@@ -330,9 +330,9 @@ internal sealed class SettingsForm : Form
 
     private static Label Label(string text, int width = 70) => new() { Text = text, Width = width, Padding = new Padding(0, 4, 0, 0) };
 
-    private static Label Heading(string text) => new() { Text = text, AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Padding = new Padding(0, 8, 0, 2), MaximumSize = new Size(580, 0) };
+    private static Label Heading(string text) => new() { Text = text, AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Padding = new Padding(0, 8, 0, 2), MaximumSize = new Size(680, 0) };
 
-    private static Label Hint(string text) => new() { Text = text, AutoSize = true, ForeColor = SystemColors.GrayText, MaximumSize = new Size(580, 0), Padding = new Padding(0, 0, 0, 6) };
+    private static Label Hint(string text) => new() { Text = text, AutoSize = true, ForeColor = SystemColors.GrayText, MaximumSize = new Size(680, 0), Padding = new Padding(0, 0, 0, 6) };
 
     private static FlowLayoutPanel Row(params Control[] controls)
     {
