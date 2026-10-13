@@ -5,11 +5,11 @@
   { "id": "simple-http", "category": "simple", "draft": "what does http 418 mean", "maxLengthRatio": 4 },
   { "id": "simple-synonym", "category": "simple", "draft": "another word for important", "maxLengthRatio": 4, "mode": "Light" },
 
-  { "id": "vague-assignment", "category": "vague", "draft": "help me with my assignment", "repeat": 3 },
-  { "id": "vague-code-better", "category": "vague", "draft": "make my code better" },
-  { "id": "vague-ai-essay", "category": "vague", "draft": "write something about AI in healthcare" },
-  { "id": "vague-databases", "category": "vague", "draft": "explain databases" },
-  { "id": "vague-plan", "category": "vague", "draft": "i need a plan for my project" },
+  { "id": "vague-assignment", "expectQuestions": true, "category": "vague", "draft": "help me with my assignment", "repeat": 3 },
+  { "id": "vague-code-better", "expectQuestions": true, "category": "vague", "draft": "make my code better" },
+  { "id": "vague-ai-essay", "expectQuestions": true, "category": "vague", "draft": "write something about AI in healthcare" },
+  { "id": "vague-databases", "expectQuestions": true, "category": "vague", "draft": "explain databases" },
+  { "id": "vague-plan", "expectQuestions": true, "category": "vague", "draft": "i need a plan for my project" },
 
   { "id": "coding-feature", "category": "coding", "draft": "add a dark mode toggle to my react app, the settings page is in src/pages/Settings.tsx and we use tailwind. it should remember the choice", "repeat": 3 },
   { "id": "coding-refactor", "category": "coding", "draft": "refactor the OrderService class so the discount logic is separate, dont change the public methods because other teams use them. c# .net 8", "mustContain": ["OrderService"] },

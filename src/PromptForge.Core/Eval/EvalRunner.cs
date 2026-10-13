@@ -25,6 +25,9 @@ public sealed record EvalCase
     /// <summary>True when the draft is already good and should come back unchanged or lightly edited.</summary>
     public bool ExpectMinimalChange { get; init; }
 
+    /// <summary>True when the draft leaves important choices open, so the optimiser should ask questions.</summary>
+    public bool ExpectQuestions { get; init; }
+
     /// <summary>Run this case several times to measure consistency.</summary>
     public int Repeat { get; init; } = 1;
 }
@@ -121,6 +124,13 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         var ratio = output.Length / (double)Math.Max(1, evalCase.Draft.Length);
         if (evalCase.MaxLengthRatio is { } max && ratio > max)
             failures.Add($"over-expanded: {ratio:0.0}x the draft (limit {max:0.0}x)");
+
+        if (evalCase.ExpectQuestions && result.Questions.Count == 0)
+            failures.Add("vague draft but no questions for the user");
+
+        var addedNumbers = NumberRegex().Matches(output).Select(m => m.Value).Distinct()
+            .Where(n => !evalCase.Draft.Contains(n, StringComparison.Ordinal)).ToList();
+        if (addedNumbers.Count > 0) failures.Add("added numbers not in the draft: " + string.Join(", ", addedNumbers));
 
         if (evalCase.ExpectMinimalChange && result.Verdict == Verdict.Rewritten && ratio > 1.4)
             failures.Add($"rewrote an already-good draft ({ratio:0.0}x length)");
@@ -261,6 +271,9 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
 
     [GeneratedRegex(@"\[(?:insert|your|add|specify|describe|enter|fill|tbd|name of)[^\]]{0,40}\]|<(?:insert|your|add|specify)[^>]{0,40}>|\{\{\s*\w+\s*\}\}", RegexOptions.IgnoreCase)]
     private static partial Regex PlaceholderRegex();
+
+    [GeneratedRegex(@"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")]
+    private static partial Regex NumberRegex();
 
     [GeneratedRegex(@"world[- ]class|you are an expert|you are a highly|best practices|step[- ]by[- ]step|\bIMPORTANT\b|\bCRITICAL\b|\bMUST\b", RegexOptions.None)]
     private static partial Regex FillerRegex();

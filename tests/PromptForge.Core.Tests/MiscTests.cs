@@ -252,3 +252,24 @@ public class EvalCasesFileTests
         Assert.Contains(cases, c => c.Repeat == 3);
     }
 }
+
+public class EvalGradingNumberTests
+{
+    [Fact]
+    public void Flags_numbers_and_missing_questions()
+    {
+        var c = new EvalCase { Id = "t", Category = "vague", Draft = "explain databases", ExpectQuestions = true };
+        var result = new OptimizeResult { Original = c.Draft, Prompt = "Explain databases in 3 paragraphs.", TaskType = TaskType.Study, Verdict = Verdict.Rewritten, Model = "m" };
+        var failures = EvalRunner.Grade(c, result);
+        Assert.Contains(failures, f => f.Contains("no questions"));
+        Assert.Contains(failures, f => f.Contains("added numbers") && f.Contains('3'));
+    }
+
+    [Fact]
+    public void Numbers_from_the_draft_are_fine()
+    {
+        var c = new EvalCase { Id = "t", Category = "simple", Draft = "what does http 418 mean" };
+        var result = new OptimizeResult { Original = c.Draft, Prompt = "What does HTTP status 418 mean?", TaskType = TaskType.General, Verdict = Verdict.LightEdit, Model = "m" };
+        Assert.Empty(EvalRunner.Grade(c, result));
+    }
+}
