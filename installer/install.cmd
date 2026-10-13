@@ -1,11 +1,14 @@
 @echo off
 setlocal
 title PromptForge setup
-set "SRC=%~dp0PromptForge.exe"
 set "DEST=%LOCALAPPDATA%\Programs\PromptForge"
 
+rem Works from the dist folder (exe next to this script) or from the repo's installer folder (exe in ..\dist).
+set "SRC=%~dp0PromptForge.exe"
+if not exist "%SRC%" set "SRC=%~dp0..\dist\PromptForge.exe"
 if not exist "%SRC%" (
-  echo PromptForge.exe was not found next to install.cmd.
+  echo PromptForge.exe was not found next to install.cmd or in ..\dist.
+  echo Build it first, or run install.cmd from the folder that contains PromptForge.exe.
   pause
   exit /b 1
 )
@@ -22,6 +25,7 @@ if errorlevel 1 (
   exit /b 1
 )
 copy /Y "%~dp0uninstall.cmd" "%DEST%\uninstall.cmd" >nul 2>&1
+echo Installing from %SRC%
 
 rem Remove the "downloaded from the internet" mark so Windows doesn't block it, and add a Start menu shortcut.
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
