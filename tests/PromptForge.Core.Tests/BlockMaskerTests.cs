@@ -106,4 +106,20 @@ public class BlockMaskerTests
 
     private static int CountOf(string text, string value) =>
         (text.Length - text.Replace(value, "").Length) / value.Length;
+
+    [Fact]
+    public void Material_placed_mid_sentence_is_moved_onto_its_own_lines()
+    {
+        var blocks = new[] { new MaskedBlock("[[BLOCK_1]]", "line1\nline2", "x") };
+        var restored = BlockMasker.Unmask("I get this error (see [[BLOCK_1]]) sometimes.", blocks);
+        Assert.Equal("I get this error (see \nline1\nline2\n) sometimes.", restored.Text);
+    }
+
+    [Fact]
+    public void Description_includes_the_last_line_of_a_trace()
+    {
+        var trace = "Traceback (most recent call last):\n  File \"a.py\", line 1, in <module>\n    x()\n  File \"a.py\", line 2, in x\n    return 1/0\n  File \"b.py\", line 3\n    pass\nZeroDivisionError: division by zero";
+        var masked = BlockMasker.Mask("why\n```\n" + trace + "\n```");
+        Assert.Contains("ends with: ZeroDivisionError: division by zero", masked.Blocks[0].Description);
+    }
 }

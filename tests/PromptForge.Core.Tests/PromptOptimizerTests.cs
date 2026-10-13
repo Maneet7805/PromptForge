@@ -64,7 +64,7 @@ public class PromptOptimizerTests
 
         var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "why does this crash\n" + code }, [Primary]);
 
-        Assert.DoesNotContain("Console.WriteLine", client.Calls[0].Messages[1].Content);
+        Assert.DoesNotContain("var y = 0;", client.Calls[0].Messages[1].Content); // only first/last lines are described
         Assert.Contains(code, result.Prompt);
         Assert.Empty(result.Warnings);
     }

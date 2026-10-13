@@ -82,6 +82,15 @@ The rewriting rules apply Anthropic's guidance:
 - No shouting, no "world-class expert" filler, nothing invented.
 - A simple question stays simple; a good prompt comes back unchanged.
 
+## Measured quality (13 Oct 2026, gpt-oss-120b on Groq's free tier)
+
+| Run | Passed all checks | Median / 95th-percentile latency | Notes |
+| --- | --- | --- | --- |
+| v0.2 optimiser | 48/53 (91%) | 830 ms / 1.5 s | Vague one-liners came back unchanged with no questions; invented "three sources" |
+| v0.3 optimiser | 50/53 (94%) | 914 ms / 1.7 s | Vague drafts now get questions; no invented counts. Remaining: "explain databases" gets no questions, one "best practices" phrase, one "e.g. dₖ=2" example value |
+
+The checks look for dropped details, leftover markers, fill-in placeholders, filler phrases, invented numbers, over-expansion, rewriting already-good prompts, and missing questions on vague drafts. Repeated runs of the same draft gave the same task type and verdict each time, with output length varying by roughly ±20%. An LLM judge is available but was unreliable in testing: about half its "invented details" flags were wrong.
+
 ## Free-tier limits (Groq, checked 13 Oct 2026)
 
 | Model | Requests/min | Requests/day | Tokens/min | Tokens/day |

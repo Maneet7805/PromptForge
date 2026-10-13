@@ -98,9 +98,12 @@ public static partial class BlockMasker
                 continue;
             }
             // Remove duplicates after the first occurrence, then substitute the first.
-            var head = result[..(first + block.Marker.Length)];
+            var head = result[..first];
             var tail = result[(first + block.Marker.Length)..].Replace(block.Marker, string.Empty, StringComparison.Ordinal);
-            result = head[..first] + block.Content + tail;
+            // Material always goes on its own lines, even if the model put the marker mid-sentence.
+            var before = head.Length == 0 || head.EndsWith('\n') ? "" : "\n";
+            var after = tail.Length == 0 || tail.StartsWith('\n') ? "" : "\n";
+            result = head + before + block.Content + after + tail;
         }
 
         foreach (var marker in missing)
@@ -118,11 +121,15 @@ public static partial class BlockMasker
     private static string Describe(string kind, string content)
     {
         var lines = content.Split('\n');
-        var firstMeaningful = lines
+        var meaningful = lines
             .Select(l => l.Trim())
-            .FirstOrDefault(l => l.Length > 0 && !l.StartsWith("```", StringComparison.Ordinal) && !l.StartsWith("~~~", StringComparison.Ordinal)) ?? "";
-        if (firstMeaningful.Length > 80) firstMeaningful = firstMeaningful[..77] + "...";
-        return $"{kind}, {lines.Length} lines, starts with: {firstMeaningful}";
+            .Where(l => l.Length > 0 && !l.StartsWith("```", StringComparison.Ordinal) && !l.StartsWith("~~~", StringComparison.Ordinal))
+            .ToList();
+        static string Clip(string s) => s.Length > 80 ? s[..77] + "..." : s;
+        var description = $"{kind}, {lines.Length} lines, starts with: {Clip(meaningful.FirstOrDefault() ?? "")}";
+        // The last line of a stack trace or log usually carries the actual error, and often reveals the language.
+        if (meaningful.Count > 1) description += $" | ends with: {Clip(meaningful[^1])}";
+        return description;
     }
 
     /// <summary>Finds runs of consecutive lines that look like code, stack traces or logs rather than prose.</summary>
