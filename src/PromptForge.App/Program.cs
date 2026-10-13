@@ -27,17 +27,16 @@ internal static class Program
         using var mutex = new Mutex(initiallyOwned: false, MutexName);
         if (!TryAcquire(mutex, TimeSpan.Zero))
         {
-            // Another copy is running. If it's on its way out (an update just restarted us), wait for it;
-            // otherwise ask it to show its settings window and quit.
-            if (!TryAcquire(mutex, TimeSpan.FromSeconds(3)))
+            // Already running: let that copy take the foreground, ask it to show Settings, and quit.
+            if (EventWaitHandle.TryOpenExisting(ShowSettingsEventName, out var existing))
             {
-                if (EventWaitHandle.TryOpenExisting(ShowSettingsEventName, out var existing))
-                {
-                    existing.Set();
-                    existing.Dispose();
-                }
+                Native.Win32.AllowSetForegroundWindow(Native.Win32.ASFW_ANY);
+                existing.Set();
+                existing.Dispose();
                 return 0;
             }
+            // No listener yet: the other copy is starting up or shutting down. Wait briefly for it.
+            if (!TryAcquire(mutex, TimeSpan.FromSeconds(3))) return 0;
         }
 
         Application.ThreadException += (_, e) => Log.Error("unhandled UI exception", e.Exception);

@@ -51,8 +51,11 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _voiceAuto = new() { Text = "After dictating, send the text to the optimiser and review it (instead of typing it in)", AutoSize = true };
     private readonly NumericUpDown _voiceMax = new() { Minimum = 10, Maximum = 600, Width = 70 };
 
-    public SettingsForm(AppSettings current, ISecretStore secrets, HotkeyManager hotkeys, ILlmClient client, string? initialTab = null)
+    private readonly Action? _runQualityCheck;
+
+    public SettingsForm(AppSettings current, ISecretStore secrets, HotkeyManager hotkeys, ILlmClient client, string? initialTab = null, Action? runQualityCheck = null)
     {
+        _runQualityCheck = runQualityCheck;
         _s = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(current, SettingsStore.JsonOptions), SettingsStore.JsonOptions)!;
         _secrets = secrets;
         _hotkeys = hotkeys;
@@ -168,7 +171,12 @@ internal sealed class SettingsForm : Form
             try { Directory.Delete(AppPaths.DataDir, recursive: true); } catch (IOException) { }
             Application.Exit();
         };
+        var quality = new Button { Text = "Run quality check on a test set…", AutoSize = true, Enabled = _runQualityCheck is not null };
+        quality.Click += (_, _) => _runQualityCheck?.Invoke();
         return Stack(
+            Heading("Quality check"),
+            Hint("Runs the optimiser over a set of test prompts (the repo's eval\\cases.json) with your saved key and writes a report next to it. Takes about 10 minutes for 50 prompts on the free tier."),
+            quality,
             Heading("What PromptForge stores"),
             Hint("Settings: %APPDATA%\\PromptForge\\settings.json. API keys: secrets.dat, encrypted for your Windows account."),
             Hint("Logs: events, timings and error types for 7 days. Never prompt text, transcripts or keys."),

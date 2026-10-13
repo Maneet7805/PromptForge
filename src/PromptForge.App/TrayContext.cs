@@ -30,6 +30,12 @@ internal sealed class TrayContext : ApplicationContext
         _voice = new VoiceController(_services, _optimize);
         _tray = new NotifyIcon { Icon = AppIcon.Get(), Text = "PromptForge", Visible = true, ContextMenuStrip = BuildMenu() };
         _tray.DoubleClick += (_, _) => OpenSettings();
+        _tray.MouseUp += (_, e) =>
+        {
+            // Left-click opens the menu too (WinForms only does this for right-click).
+            if (e.Button == MouseButtons.Left)
+                typeof(NotifyIcon).GetMethod("ShowContextMenu", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.Invoke(_tray, null);
+        };
         _services.Notify = (message, icon) => _tray.ShowBalloonTip(4000, "PromptForge", message, icon);
         _hotkeys.Pressed += OnHotkey;
 
@@ -184,12 +190,13 @@ internal sealed class TrayContext : ApplicationContext
     {
         if (_settingsForm is { IsDisposed: false })
         {
-            _settingsForm.Activate();
+            if (_settingsForm.WindowState == FormWindowState.Minimized) _settingsForm.WindowState = FormWindowState.Normal;
+            _ = Foreground.BringToFrontAsync(_settingsForm.Handle);
             return;
         }
         // Shortcuts are paused while settings are open so pressing one records it instead of triggering it.
         _hotkeys.UnregisterAll();
-        _settingsForm = new SettingsForm(_services.Settings, _services.Secrets, _hotkeys, _services.Client, tab);
+        _settingsForm = new SettingsForm(_services.Settings, _services.Secrets, _hotkeys, _services.Client, tab, () => _ = RunEvalAsync());
         _settingsForm.FormClosed += (_, _) =>
         {
             if (_settingsForm.DialogResult == DialogResult.OK)
@@ -202,7 +209,7 @@ internal sealed class TrayContext : ApplicationContext
             if (!_pause.Checked) RegisterHotkeys(reportProblems: true);
         };
         _settingsForm.Show();
-        _settingsForm.Activate();
+        _ = Foreground.BringToFrontAsync(_settingsForm.Handle);
     }
 
     private bool HasUsableKey()
