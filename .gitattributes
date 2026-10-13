@@ -1,5 +1,6 @@
-# Normalise line endings in the repository; check out with the platform default.
-* text=auto
+# LF everywhere, including Windows checkouts: string literals in the source (system prompt,
+# message templates) must be byte-identical whichever OS builds the release.
+* text=auto eol=lf
 
 # Windows batch files must keep CRLF or cmd.exe can misread labels and goto.
 *.cmd -text

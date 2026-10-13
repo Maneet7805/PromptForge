@@ -7,38 +7,40 @@ public static class UserMessageBuilder
 {
     public static string Build(OptimizeRequest request, MaskResult masked)
     {
+        // Always "\n", never Environment.NewLine: the message must be identical on every OS.
         var sb = new StringBuilder();
-        sb.AppendLine("<settings>");
-        sb.AppendLine($"mode: {request.Mode.ToString().ToLowerInvariant()}");
-        sb.AppendLine(request.TaskOverride == TaskType.Auto
+        void Line(string text = "") => sb.Append(text).Append('\n');
+        Line("<settings>");
+        Line($"mode: {request.Mode.ToString().ToLowerInvariant()}");
+        Line(request.TaskOverride == TaskType.Auto
             ? "task_type: decide from the draft"
             : $"task_type: {request.TaskOverride.ToString().ToLowerInvariant()} (chosen by the user)");
         if (!string.IsNullOrWhiteSpace(request.WrittenIn))
-            sb.AppendLine($"written_in: {request.WrittenIn.Trim()}");
-        sb.AppendLine("</settings>");
+            Line($"written_in: {request.WrittenIn.Trim()}");
+        Line("</settings>");
 
         if (!string.IsNullOrWhiteSpace(request.PersonalContext))
         {
-            sb.AppendLine();
-            sb.AppendLine("<about_user>");
-            sb.AppendLine("Standing background about the user. Use it only where it is clearly relevant to this draft; never use it to fill in missing task details.");
-            sb.AppendLine(request.PersonalContext.Trim());
-            sb.AppendLine("</about_user>");
+            Line();
+            Line("<about_user>");
+            Line("Standing background about the user. Use it only where it is clearly relevant to this draft; never use it to fill in missing task details.");
+            Line(request.PersonalContext.Trim());
+            Line("</about_user>");
         }
 
         if (masked.HasBlocks)
         {
-            sb.AppendLine();
-            sb.AppendLine("<held_back_material>");
+            Line();
+            Line("<held_back_material>");
             foreach (var block in masked.Blocks)
-                sb.AppendLine($"{block.Marker}: {block.Description}");
-            sb.AppendLine("</held_back_material>");
+                Line($"{block.Marker}: {block.Description}");
+            Line("</held_back_material>");
         }
 
-        sb.AppendLine();
-        sb.AppendLine("<draft>");
-        sb.AppendLine(masked.Text.Trim());
-        sb.AppendLine("</draft>");
+        Line();
+        Line("<draft>");
+        Line(masked.Text.Trim());
+        Line("</draft>");
         return sb.ToString();
     }
 
