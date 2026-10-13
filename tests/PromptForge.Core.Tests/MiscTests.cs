@@ -236,3 +236,19 @@ public class EvalGradingTests
         Assert.Empty(EvalRunner.Grade(c, Result(c.Draft, "Fill in this template: Dear [your name], thanks")));
     }
 }
+
+public class EvalCasesFileTests
+{
+    [Fact]
+    public void Shipped_eval_cases_parse_and_have_unique_ids()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "eval", "cases.json"))) dir = Path.GetDirectoryName(dir);
+        Assert.NotNull(dir);
+        var cases = EvalRunner.LoadCases(Path.Combine(dir!, "eval", "cases.json"));
+        Assert.True(cases.Count >= 40);
+        Assert.Equal(cases.Count, cases.Select(c => c.Id).Distinct().Count());
+        Assert.Contains(cases, c => c.Mode == OptimizeMode.Detailed);
+        Assert.Contains(cases, c => c.Repeat == 3);
+    }
+}

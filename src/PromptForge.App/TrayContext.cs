@@ -1,0 +1,192 @@
+using System.Diagnostics;
+using PromptForge.App.Flows;
+using PromptForge.App.Hotkeys;
+using PromptForge.App.Infrastructure;
+using PromptForge.App.TextAccess;
+using PromptForge.App.UI;
+using PromptForge.Core.Llm;
+using PromptForge.Core.Optimization;
+using PromptForge.Core.Settings;
+
+namespace PromptForge.App;
+
+/// <summary>The app lives in the notification area: no main window, just hotkeys and a tray menu.</summary>
+internal sealed class TrayContext : ApplicationContext
+{
+    private readonly AppServices _services = new();
+    private readonly HotkeyManager _hotkeys = new();
+    private readonly NotifyIcon _tray;
+    private readonly OptimizeController _optimize;
+    private readonly VoiceController _voice;
+    private readonly ToolStripMenuItem _pause = new("Pause shortcuts") { CheckOnClick = true };
+    private readonly ToolStripMenuItem _restore = new("Copy last original text") { Enabled = false };
+    private readonly ToolStripMenuItem _shortcutsInfo = new() { Enabled = false };
+    private readonly Dictionary<OptimizeMode, ToolStripMenuItem> _modeItems = [];
+    private SettingsForm? _settingsForm;
+
+    public TrayContext(bool startedInBackground)
+    {
+        _optimize = new OptimizeController(_services);
+        _voice = new VoiceController(_services, _optimize);
+        _tray = new NotifyIcon { Icon = AppIcon.Get(), Text = "PromptForge", Visible = true, ContextMenuStrip = BuildMenu() };
+        _tray.DoubleClick += (_, _) => OpenSettings();
+        _services.Notify = (message, icon) => _tray.ShowBalloonTip(4000, "PromptForge", message, icon);
+        _hotkeys.Pressed += OnHotkey;
+
+        RegisterHotkeys(reportProblems: true);
+        Log.Info($"started version={Application.ProductVersion} background={startedInBackground}");
+
+        if (!HasUsableKey())
+        {
+            OpenSettings("Model");
+            _services.Notify("Welcome! Add a free Groq API key to start (Settings → Model → Get a key).", ToolTipIcon.Info);
+        }
+        else if (!startedInBackground)
+        {
+            _services.Notify($"Running in the tray. Press {_services.Settings.Hotkeys.Optimize} in any text box to optimise it.", ToolTipIcon.Info);
+        }
+    }
+
+    /// <summary>Called when the user launches PromptForge again while it's already running.</summary>
+    public void OnSecondInstance() => OpenSettings();
+
+    private ContextMenuStrip BuildMenu()
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(new ToolStripMenuItem("PromptForge") { Enabled = false, Font = new Font(menu.Font, FontStyle.Bold) });
+        menu.Items.Add(_shortcutsInfo);
+        menu.Items.Add(new ToolStripSeparator());
+
+        var modes = new ToolStripMenuItem("Default mode");
+        foreach (var mode in Enum.GetValues<OptimizeMode>())
+        {
+            var item = new ToolStripMenuItem(mode.ToString()) { Checked = _services.Settings.DefaultMode == mode };
+            item.Click += (_, _) => SetMode(mode);
+            _modeItems[mode] = item;
+            modes.DropDownItems.Add(item);
+        }
+        menu.Items.Add(modes);
+
+        _restore.Click += (_, _) =>
+        {
+            if (_optimize.LastOriginal is { } original)
+            {
+                ClipboardText.Write(original);
+                _services.Notify("Your last original text is on the clipboard.", ToolTipIcon.Info);
+            }
+        };
+        menu.Items.Add(_restore);
+
+        _pause.CheckedChanged += (_, _) =>
+        {
+            if (_pause.Checked) _hotkeys.UnregisterAll();
+            else RegisterHotkeys(reportProblems: true);
+            _tray.Text = _pause.Checked ? "PromptForge (paused)" : "PromptForge";
+        };
+        menu.Items.Add(_pause);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Settings…", null, (_, _) => OpenSettings());
+        menu.Items.Add("Open logs folder", null, (_, _) =>
+        {
+            Directory.CreateDirectory(AppPaths.LogDir);
+            Process.Start(new ProcessStartInfo(AppPaths.LogDir) { UseShellExecute = true });
+        });
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Exit", null, (_, _) => ExitThread());
+        menu.Opening += (_, _) => _restore.Enabled = _optimize.LastOriginal is not null;
+        return menu;
+    }
+
+    private void SetMode(OptimizeMode mode)
+    {
+        _services.Settings.DefaultMode = mode;
+        _services.SaveSettings();
+        foreach (var (m, item) in _modeItems) item.Checked = m == mode;
+    }
+
+    private void RegisterHotkeys(bool reportProblems)
+    {
+        var hk = _services.Settings.Hotkeys;
+        var problems = new List<string>();
+        void Try(HotkeyAction action, string chord)
+        {
+            if (string.IsNullOrWhiteSpace(chord)) return;
+            if (_hotkeys.Register(action, chord) is { } problem) problems.Add(problem);
+        }
+        Try(HotkeyAction.Optimize, hk.Optimize);
+        Try(HotkeyAction.OptimizeSelection, hk.OptimizeSelection);
+        if (_services.Settings.Voice.Enabled) Try(HotkeyAction.Voice, hk.Voice);
+
+        _shortcutsInfo.Text = $"{hk.Optimize}: optimise · {hk.OptimizeSelection}: selection" + (_services.Settings.Voice.Enabled ? $" · {hk.Voice}: voice" : "");
+        if (problems.Count > 0)
+        {
+            Log.Warn("hotkey problems: " + string.Join(" | ", problems));
+            if (reportProblems) _services.Notify(string.Join("\n", problems), ToolTipIcon.Warning);
+        }
+    }
+
+    private async void OnHotkey(HotkeyAction action)
+    {
+        var chord = _hotkeys.Registered.GetValueOrDefault(action);
+        var mainKey = chord is not null && HotkeyManager.TryGetVirtualKey(chord, out var key) ? key : Keys.None;
+        switch (action)
+        {
+            case HotkeyAction.Optimize:
+                await _optimize.OnHotkeyAsync(CaptureMode.WholeField, mainKey);
+                break;
+            case HotkeyAction.OptimizeSelection:
+                await _optimize.OnHotkeyAsync(CaptureMode.Selection, mainKey);
+                break;
+            case HotkeyAction.Voice:
+                _voice.OnHotkey(mainKey);
+                break;
+        }
+    }
+
+    private void OpenSettings(string? tab = null)
+    {
+        if (_settingsForm is { IsDisposed: false })
+        {
+            _settingsForm.Activate();
+            return;
+        }
+        // Shortcuts are paused while settings are open so pressing one records it instead of triggering it.
+        _hotkeys.UnregisterAll();
+        _settingsForm = new SettingsForm(_services.Settings, _services.Secrets, _hotkeys, _services.Client, tab);
+        _settingsForm.FormClosed += (_, _) =>
+        {
+            if (_settingsForm.DialogResult == DialogResult.OK)
+            {
+                _services.Settings = _settingsForm.Result;
+                _services.SaveSettings();
+                Log.Info("settings saved");
+            }
+            _settingsForm = null;
+            if (!_pause.Checked) RegisterHotkeys(reportProblems: true);
+        };
+        _settingsForm.Show();
+        _settingsForm.Activate();
+    }
+
+    private bool HasUsableKey()
+    {
+        try
+        {
+            return EndpointResolver.Resolve(_services.Settings, _services.Secrets).Count > 0;
+        }
+        catch (MissingKeyException)
+        {
+            return false;
+        }
+    }
+
+    protected override void ExitThreadCore()
+    {
+        Log.Info("exiting");
+        _tray.Visible = false;
+        _tray.Dispose();
+        _hotkeys.Dispose();
+        _services.Dispose();
+        base.ExitThreadCore();
+    }
+}

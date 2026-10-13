@@ -10,6 +10,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>PromptForge</AssemblyName>
     <RootNamespace>PromptForge.App</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
@@ -33,6 +34,10 @@
     <!-- System.Windows (WPF) and System.Windows.Forms both define common type names;
          keep WPF out of the implicit global usings. -->
     <Using Remove="System.Windows" />
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+    <Using Include="System.Drawing" />
+    <Using Include="System.Windows.Forms" />
   </ItemGroup>
 
   <ItemGroup>
