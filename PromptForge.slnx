@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PromptForge.App/PromptForge.App.csproj" />
+    <Project Path="src/PromptForge.Core/PromptForge.Core.csproj" />
+  </Folder>
+</Solution>

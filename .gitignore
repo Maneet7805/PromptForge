@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+.vs/
+publish/
+dist/
+eval/results/
+*.log
