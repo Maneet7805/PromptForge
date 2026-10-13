@@ -16,9 +16,12 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
     <ApplicationIcon>Assets\PromptForge.ico</ApplicationIcon>
-    <Version>0.3.1</Version>
+    <Version>1.0.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>PromptForge</Product>
+    <Authors>Maneet Arvind Mehta</Authors>
+    <Copyright>Copyright (c) 2026 Maneet Arvind Mehta. MIT License.</Copyright>
+    <RepositoryUrl>https://github.com/Maneet7805/PromptForge</RepositoryUrl>
     <Description>Rewrites rough prompts into clear ones on a hotkey.</Description>
 
     <!-- Single self-contained exe: no .NET runtime needed on the target PC. -->

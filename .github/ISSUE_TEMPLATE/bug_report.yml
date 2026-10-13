@@ -1,0 +1,63 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste your API key here.** Logs don't contain prompt text or keys, but please glance over them before pasting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you press, and what happened instead of what you expected?
+      placeholder: Pressed Ctrl+Alt+P in the ChatGPT box in Chrome; the review window showed but Replace left the old text.
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: App you were typing in
+      placeholder: e.g. Chrome + claude.ai, VS Code chat panel, Word, Notepad
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PromptForge version
+      description: Shown in the install/update prompt, or right-click PromptForge.exe → Properties → Details.
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows version
+      options:
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Model provider
+      options:
+        - Groq (default)
+        - Gemini
+        - Ollama
+        - Custom
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Type ...
+        3. Press ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Tray icon → Open logs folder → latest promptforge-*.log. Paste the lines around the time of the problem.
+      render: text

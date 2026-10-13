@@ -78,7 +78,10 @@ internal sealed class SettingsForm : Form
             tabs.SelectedTab = tabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Text == initialTab) ?? tabs.TabPages[0];
 
         var save = new Button { Text = "Save", AutoSize = true };
-        var cancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
+        // Settings is shown modeless (Show, not ShowDialog), so a button's DialogResult alone
+        // doesn't close it: Cancel and Esc must close explicitly.
+        var cancel = new Button { Text = "Cancel", AutoSize = true };
+        cancel.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
         save.Click += (_, _) => Save();
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
         buttons.Controls.AddRange([cancel, save]);

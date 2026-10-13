@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read version from tag
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Check the project version matches the tag
+        run: |
+          [xml]$proj = Get-Content src/PromptForge.App/PromptForge.App.csproj
+          $projVersion = ($proj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+          if ($projVersion -ne $env:VERSION) { throw "Tag v$env:VERSION doesn't match <Version>$projVersion</Version> in PromptForge.App.csproj" }
+
+      - name: Test
+        run: dotnet test tests/PromptForge.Core.Tests -c Release
+
+      - name: Publish
+        run: dotnet publish src/PromptForge.App -c Release -o publish
+
+      - name: Package
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item publish/PromptForge.exe out/PromptForge.exe
+          Copy-Item installer/uninstall.cmd out/uninstall.cmd
+          Copy-Item LICENSE out/LICENSE.txt
+          Compress-Archive -Path out/PromptForge.exe, out/uninstall.cmd, out/LICENSE.txt -DestinationPath "out/PromptForge-$env:VERSION-win-x64.zip"
+          $lines = Get-ChildItem out -File -Include *.exe, *.zip -Recurse | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          }
+          $lines | Out-File out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
+
+      - name: Release notes from CHANGELOG
+        run: |
+          $text = Get-Content CHANGELOG.md -Raw
+          $pattern = '(?ms)^## \[' + [regex]::Escape($env:VERSION) + '\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]:|\z)'
+          $match = [regex]::Match($text, $pattern)
+          $notes = if ($match.Success) { $match.Groups[1].Value.Trim() } else { "See [CHANGELOG.md](CHANGELOG.md)." }
+          $install = @"
+
+          ---
+
+          ### Install or update
+          1. Download **PromptForge.exe** below and double-click it. If SmartScreen appears: **More info → Run anyway** (the exe isn't code-signed).
+          2. Choose **Yes** to install, or to update an existing copy (settings and keys are kept).
+          3. Paste a free key from https://console.groq.com/keys in Settings → Model → **Test connection** → **Save**.
+
+          The zip contains the same exe plus ``uninstall.cmd``. Verify the download against ``SHA256SUMS.txt``.
+          "@
+          ($notes + "`n" + $install) | Out-File notes.md -Encoding utf8
+          Get-Content notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            out/PromptForge.exe "out/PromptForge-$env:VERSION-win-x64.zip" out/SHA256SUMS.txt `
+            --title "PromptForge $env:VERSION" `
+            --notes-file notes.md `
+            --verify-tag

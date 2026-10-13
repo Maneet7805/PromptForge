@@ -1,0 +1,9 @@
+# Normalise line endings in the repository; check out with the platform default.
+* text=auto
+
+# Windows batch files must keep CRLF or cmd.exe can misread labels and goto.
+*.cmd -text
+*.bat -text
+
+*.png binary
+*.ico binary

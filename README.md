@@ -1,146 +1,205 @@
+<div align="center">
+
+<img src="docs/images/icon.png" width="96" alt="PromptForge icon">
+
 # PromptForge
 
-A personal Windows tray app that turns the rough prompt you're typing into a clear one, in the app you're already using. Type naturally, press **Ctrl+Alt+P**, review the rewrite, press **Ctrl+Enter**, and carry on.
+**Turn the rough prompt you're typing into a clear one without leaving the app you're in.**
 
-- Works in any normal text box: browser AI chats (ChatGPT, Claude, Gemini, Perplexity), desktop apps, editors, email.
-- Always shows the rewrite for review first. It never sends or submits anything.
-- Free to run: uses Groq's free API tier by default (no card needed).
-- Optional voice dictation with the same free key.
+Type naturally, press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>, review the rewrite, press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>.
 
-It was built after researching Prompto (joinprompto.com) and Anthropic's prompt engineering guidance, but it's a personal tool: no accounts, quotas, billing or server.
+[![Latest release](https://img.shields.io/github/v/release/Maneet7805/PromptForge?label=download&color=6d4aff)](https://github.com/Maneet7805/PromptForge/releases/latest)
+[![CI](https://github.com/Maneet7805/PromptForge/actions/workflows/ci.yml/badge.svg)](https://github.com/Maneet7805/PromptForge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4)
+![.NET 10](https://img.shields.io/badge/.NET-10-512bd4)
+
+[**Download**](https://github.com/Maneet7805/PromptForge/releases/latest) · [Quick start](#quick-start) · [How it works](#how-it-works) · [FAQ](#troubleshooting) · [Contributing](CONTRIBUTING.md)
+
+<img src="docs/images/review-improved.png" width="640" alt="PromptForge review window showing an improved prompt, follow-up questions and what changed">
+
+</div>
 
 ---
 
-## Install
+## Why
 
-1. Get a free Groq API key at <https://console.groq.com/keys>.
-2. Double-click **`dist\PromptForge.exe`** and choose **Yes** to install. It copies itself to `%LOCALAPPDATA%\Programs\PromptForge`, adds a Start menu shortcut, and asks whether to start with Windows. No admin rights are needed.
-3. Settings opens on the **Model** tab. Paste the key, click **Test connection**, then **Save**.
+Most prompts are typed in a hurry: no deliverable, missing context, details buried in a run-on sentence. PromptForge is a small Windows tray app that fixes that in place, following [Anthropic's prompt engineering guidance](https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview). It never sends anything for you: you always see the rewrite first and decide.
 
-If Windows SmartScreen appears, choose **More info → Run anyway**. The exe isn't code-signed, because that needs a paid certificate.
+## Features
 
-**Update:** double-click a newer `PromptForge.exe` and choose **Yes**. The running copy closes cleanly and restarts; settings and keys are kept.
+- **Works where you type.** ChatGPT, Claude, Gemini, Perplexity, VS Code, Word, email, Notepad: any normal text box, with no browser extension or per-app plugin.
+- **Review before replace.** See the improved prompt, a word-level diff and the original side by side. Edit it, re-run it, copy it, or keep your original.
+- **Doesn't invent things.** When details are missing it asks you questions instead of making them up. Simple questions stay simple, and good prompts come back unchanged.
+- **Keeps exact details.** URLs, file paths, identifiers, numbers and quoted text are checked after every rewrite. Pasted code, stack traces and logs are held back and restored byte-for-byte.
+- **Your clipboard is safe.** It's saved before and restored after every operation.
+- **Voice dictation.** Tap or hold a shortcut, speak, and the transcript is typed (or optimised) for you.
+- **Free to run.** Uses [Groq's](https://console.groq.com) free API tier by default. No card, no account with us, no server.
+- **Private by design.** Keys are encrypted with Windows DPAPI, and no prompt text is ever logged or stored.
 
-**Uninstall:** run `installer\uninstall.cmd`. It removes the app, the shortcut and start-with-Windows, and asks whether to delete settings, keys and logs.
+<details>
+<summary><b>See the word-level diff view</b></summary>
+<br>
+<img src="docs/images/review-changes.png" width="640" alt="Changes tab showing removed words in red and added words in green">
+</details>
 
-## Use
+## Quick start
+
+1. **Get a free API key** at <https://console.groq.com/keys>. It takes about a minute, and no card is needed.
+2. **Download [`PromptForge.exe`](https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge.exe)** from the latest release and double-click it.
+   - Windows SmartScreen may say *"Windows protected your PC"*, because the app isn't code-signed (signing needs a paid certificate). Click **More info → Run anyway**.
+3. Choose **Yes** to install. PromptForge copies itself to `%LOCALAPPDATA%\Programs\PromptForge`, adds a Start menu shortcut, and can start with Windows. It doesn't need admin rights or a separate .NET install.
+4. Settings opens on the **Model** tab. Paste your key, click **Test connection**, then **Save**.
+5. Click into any text box, type a rough prompt, and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>.
+
+**Update:** download the newer `PromptForge.exe`, run it, and choose **Yes**. The running copy restarts; your settings and keys are kept.
+**Uninstall:** run `uninstall.cmd` from the release zip. It removes the app, the shortcut and start-with-Windows, and asks whether to delete settings, keys and logs.
+
+## Usage
 
 | Shortcut (changeable in Settings) | What it does |
 | --- | --- |
-| **Ctrl+Alt+P** | Optimise everything in the text box you're typing in |
-| **Ctrl+Alt+Shift+P** | Optimise only the selected text. Use this in Word, code editors and long documents |
-| **Ctrl+Alt+D** | Voice: tap to start and tap again to stop, or hold while talking and release |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> | Optimise everything in the text box you're typing in |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> | Optimise only the selected text. Use this in Word, code editors and long documents |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> | Voice: tap to start and tap again to stop, or hold while talking and release |
 
 In the review window:
 
 | Key | Action |
 | --- | --- |
-| Ctrl+Enter | Replace the original with the (edited) improved prompt |
-| Esc | Keep the original |
-| Ctrl+Shift+C | Copy the improved prompt instead |
-| Ctrl+R | Re-run, e.g. after changing Mode/Task or adding details |
-| Ctrl+1 / 2 / 3 | Improved / Changes (word diff) / Original |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Replace your text with the (edited) improved prompt |
+| <kbd>Esc</kbd> | Keep your original |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> | Copy the improved prompt instead |
+| <kbd>Ctrl</kbd>+<kbd>R</kbd> | Re-run, e.g. after answering the questions or changing Mode or Task |
+| <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> | Improved / Changes / Original |
 
-The **"consider adding"** questions list details the optimiser needed but didn't invent. Type answers in the box under them and press Ctrl+R.
+**Modes:**
+- *Light*: minimal edits.
+- *Standard* (default): clarity, plus structure where it helps.
+- *Detailed*: full structure for complex tasks.
 
-**Modes:** *Light* = minimal edits. *Standard* (default) = clarity, plus structure where it helps. *Detailed* = full structure for complex tasks. The tray menu sets the default.
-
-**Tray menu:** left- or right-click the icon. It has the default mode, *Copy last original text* (undo safety net), *Pause shortcuts*, Settings and logs.
+Set the default mode from the tray icon. The tray menu also has *Copy last original text* as an undo safety net, and *Pause shortcuts*.
 
 ## Where it works
 
-PromptForge reads and writes text by sending Ctrl+A / Ctrl+C / Ctrl+V to the focused app and restoring your clipboard afterwards. That works in almost any text box without per-app integrations.
+PromptForge reads and writes text by sending <kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>C</kbd> / <kbd>V</kbd> to the focused app. It then reads the field back to confirm the replacement actually happened.
 
 | Where | Status | Notes |
 | --- | --- | --- |
-| Notepad (Windows 11) | ✅ Tested | Capture, review, replace, reject, field-changed and repeat cases verified |
-| Browser AI chats (ChatGPT, Claude, Gemini, Perplexity) | ⏳ Not yet tested | Uses the same mechanism as Notepad; checklist below |
-| VS Code / Cursor chat panels | ⏳ Not yet tested | Use **Optimise selection** in the code editor itself |
-| Word, Outlook, Teams | ⏳ Not yet tested | In Word use **Optimise selection**: Ctrl+A selects the whole document |
-| Terminals (Windows Terminal, cmd, PowerShell, VS Code terminal) | ⚠️ By design: copy only | PromptForge never sends keys to a terminal (Ctrl+C would interrupt, a multi-line paste can run commands). Copy your prompt first, press Ctrl+Alt+P, then paste the result yourself. Applies to Claude Code / Codex CLI too |
+| Browser AI chats (ChatGPT, Claude, Gemini, Perplexity) | ✅ Tested | |
+| Notepad and other native Windows text boxes | ✅ Tested | Including Windows 11 Notepad's delayed paste |
+| VS Code / Cursor chat panels | ✅ Tested | In the code editor itself, use *Optimise selection* |
+| Microsoft Word | ✅ Tested | Use *Optimise selection*, because select-all would take the whole document |
+| Voice dictation | ✅ Tested | Uses the same Groq key (Whisper) |
+| Terminals (Windows Terminal, cmd, PowerShell, Claude Code / Codex CLI) | ⚠️ Copy only, by design | Keystrokes in a terminal could interrupt or run commands. Copy your prompt, press the shortcut, then paste the result yourself |
 | Password fields | 🚫 Refused | Detected via UI Automation |
-| Apps running as administrator | ❌ Not possible | Windows blocks input from normal apps into elevated ones; you get a message and can copy instead |
+| Apps running as administrator | ❌ Not possible | Windows blocks input from normal apps into elevated ones. You get a message and can copy instead |
 
-If a replacement can't be confirmed, the improved prompt goes to your clipboard and a notification says so. Your original text is never lost.
+If a replacement can't be confirmed, the improved prompt goes to your clipboard and a notification tells you. Your original text is never lost.
 
-## How the optimiser works
+## How it works
 
-One model call per optimisation. Everything around it is plain code:
+```mermaid
+flowchart LR
+    A[Hotkey] --> B[Capture text<br/>clipboard saved]
+    B --> C[Mask code, traces,<br/>documents]
+    C --> D[One LLM call<br/>JSON result]
+    D --> E{Exact details<br/>kept?}
+    E -- no --> F[One repair call]
+    E -- yes --> G[Review window]
+    F --> G
+    G -- Ctrl+Enter --> H[Paste, verify,<br/>restore clipboard]
+```
 
-1. **Mask pasted material.** Fenced code, stack traces, logs and `<document>` blocks are swapped for `[[BLOCK_n]]` markers before sending. They come back byte-for-byte, and the request uses fewer tokens.
-2. **One call** to the model with a fixed system prompt (`src/PromptForge.Core/Optimization/SystemPrompt.cs`). The prompt is static so the provider can cache it. The call classifies the task (coding, debugging, research, study, writing, planning, general), decides how much to change, rewrites, and lists missing details as questions, all as JSON.
-3. **Check exact details.** URLs, paths, file names, identifiers, quoted text and numbers from your draft must appear in the rewrite. If any were dropped, one repair call fixes it; otherwise the review window warns you.
-4. **Fallback.** If the main model is rate-limited or down, the fallback model is tried. On Groq the fallback has its own separate limits.
+1. **Mask pasted material.** Fenced code, stack traces, logs and `<document>` blocks are swapped for `[[BLOCK_n]]` markers. They come back byte-for-byte, and the request uses fewer tokens.
+2. **One model call** with a static system prompt (`src/PromptForge.Core/Optimization/SystemPrompt.cs`). The prompt is static so it can be cached. The call classifies the task, decides how much to change, rewrites, and lists missing details as questions, all as JSON.
+3. **Check exact details.** URLs, paths, file names, identifiers, quoted text and numbers from your draft must survive. If any were dropped, one repair call fixes them; otherwise the review window warns you.
+4. **Fallback.** If the main model is rate-limited or down, a second model with its own limits is tried.
 
-The rewriting rules apply Anthropic's guidance:
-
+The rewriting rules:
 - Be clear and direct, and state the deliverable.
 - Keep the user's reasons.
 - Say what to do rather than what to avoid.
 - Add structure only when there are several requirements.
 - Put pasted material before the request.
 - No shouting, no "world-class expert" filler, nothing invented.
-- A simple question stays simple; a good prompt comes back unchanged.
 
-## Measured quality (13 Oct 2026, gpt-oss-120b on Groq's free tier)
+## Quality
 
-| Run | Passed all checks | Median / 95th-percentile latency | Notes |
-| --- | --- | --- | --- |
-| v0.2 optimiser | 48/53 (91%) | 830 ms / 1.5 s | Vague one-liners came back unchanged with no questions; invented "three sources" |
-| v0.3 optimiser | 50/53 (94%) | 914 ms / 1.7 s | Vague drafts now get questions; no invented counts. Remaining: "explain databases" gets no questions, one "best practices" phrase, one "e.g. dₖ=2" example value |
+A test set of 49 prompts runs with code-graded checks. It covers simple, vague, coding, debugging, research, writing, study, planning, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
+- dropped details and leftover markers
+- placeholders and filler phrases
+- invented numbers and over-expansion
+- rewriting prompts that were already good
+- missing questions on vague drafts
 
-The checks look for dropped details, leftover markers, fill-in placeholders, filler phrases, invented numbers, over-expansion, rewriting already-good prompts, and missing questions on vague drafts. Repeated runs of the same draft gave the same task type and verdict each time, with output length varying by roughly ±20%. An LLM judge is available but was unreliable in testing: about half its "invented details" flags were wrong.
+| Version | Passed all checks | Median / p95 latency |
+| --- | --- | --- |
+| 0.2 | 48/53 (91%) | 830 ms / 1.5 s |
+| 0.3 – 1.0 | 50/53 (94%) | 914 ms / 1.7 s |
 
-## Free-tier limits (Groq, checked 13 Oct 2026)
+The tests used `openai/gpt-oss-120b` on Groq's free tier. Run it yourself: **Settings → Data → Run quality check** and pick `eval/cases.json`.
 
-| Model | Requests/min | Requests/day | Tokens/min | Tokens/day |
-| --- | --- | --- | --- | --- |
-| openai/gpt-oss-120b (main) | 30 | 1,000 | 8,000 | 200,000 |
-| openai/gpt-oss-20b (fallback) | 30 | 1,000 | 8,000 | 200,000 |
-| whisper-large-v3-turbo (voice) | 20 | 2,000 | — | 2 h of audio/hour, 8 h/day |
+## Models and free-tier limits
 
-A typical optimisation uses about 1,200 input tokens, most of them the cached system prompt, which doesn't count toward the limits, plus 150–300 output tokens. Very long drafts can hit the 8K tokens/minute limit. The app then says so: use Light mode, *Optimise selection*, or wait a minute.
+| Provider | Default model | Notes |
+| --- | --- | --- |
+| **Groq** (default) | `openai/gpt-oss-120b`, fallback `openai/gpt-oss-20b` | Free tier: 30 requests/min, 1,000/day and 8K tokens/min per model. That comfortably covers personal use |
+| Gemini | `gemini-3.5-flash-lite` | Free tier available. Google may use free-tier prompts to improve its products |
+| Ollama | any local model | Fully offline, but slower and RAM-hungry |
+| Custom | any OpenAI-compatible API | Set the base URL, model and key |
 
-Other providers (Settings → Model): **Gemini** (free tier; Google may use free-tier prompts to improve its products), **Ollama** (local and private, but slower and RAM-hungry), or any **custom** OpenAI-compatible API.
+A typical rewrite uses about 1,200 input tokens, most of which is the cached system prompt, plus 150–300 output tokens. Free-tier limits change, so check your provider's docs.
 
 ## Privacy
 
 - Nothing leaves your PC until you press a shortcut. Then only the text you chose goes to your model provider, and dictated audio goes to your voice provider.
 - API keys are encrypted with Windows DPAPI for your Windows account (`%APPDATA%\PromptForge\secrets.dat`).
 - No prompt history is stored. Logs (`%APPDATA%\PromptForge\logs`, kept 7 days) contain events and timings only: never prompt text, transcripts or keys.
-- Text PromptForge puts on the clipboard is marked to stay out of Windows clipboard history and cloud sync. Text that apps copy when PromptForge reads a field can still appear in clipboard history.
-- When *Tell the optimiser what kind of app I'm typing in* is on, a coarse label such as "Claude (browser)" is sent, never the window title.
+- Text PromptForge puts on the clipboard is marked to stay out of Windows clipboard history and cloud sync.
 
 ## Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
-| Shortcut does nothing | Another app may own it: Settings → Shortcuts shows conflicts on save. Or shortcuts are paused in the tray menu |
+| Shortcut does nothing | Another app may own it. Settings → Shortcuts shows conflicts. Also check *Pause shortcuts* in the tray menu |
 | "Couldn't read text here" | The field is empty, or the app runs as administrator. Select the text and use *Optimise selection*, or copy it manually |
-| "Rate limit reached" | Free tier: wait a few seconds; the fallback model is used automatically |
-| Result copied instead of replaced | Focus changed, the field changed, or the app rejected the paste. Press Ctrl+V |
+| "Rate limit reached" | Wait a few seconds; the fallback model is used automatically |
+| Result copied instead of replaced | Focus changed, the field changed, or the app rejected the paste. Press <kbd>Ctrl</kbd>+<kbd>V</kbd> |
 | Voice: "Couldn't start the microphone" | Windows Settings → Privacy & security → Microphone → allow desktop apps |
-| Anything else | Tray → Open logs folder, and check the latest `promptforge-*.log` |
+| Anything else | Tray icon → *Open logs folder*, check the latest `promptforge-*.log`, and [open an issue](https://github.com/Maneet7805/PromptForge/issues/new/choose) |
 
 ## Build from source
 
-Requires the .NET 10 SDK. Building also works on Linux or macOS via `EnableWindowsTargeting`; running needs Windows.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download). The code builds on Windows, Linux or macOS; the app runs on Windows 10/11 x64.
 
-```
+```bash
+git clone https://github.com/Maneet7805/PromptForge.git
+cd PromptForge
 dotnet test tests/PromptForge.Core.Tests
-dotnet publish src/PromptForge.App -c Release -o dist/app
+dotnet publish src/PromptForge.App -c Release -o publish
 ```
 
-The output is a single self-contained `PromptForge.exe` (~72 MB; no .NET install needed on the target PC).
-
-**Quality check:** Settings → Data → *Run quality check on a test set…* and choose `eval\cases.json`. It runs 49 prompts across simple, vague, coding, debugging, research, writing, study, planning, strict-constraint, already-good, detail-heavy, long, injection and non-English cases. Each output gets code checks (dropped details, placeholders, filler, over-expansion), plus an optional second-model judge for invented details and answering-instead-of-rewriting. The report lands in `eval\results\<timestamp>\report.md`.
-
-## Project layout
+The output is a single self-contained `publish/PromptForge.exe` (~72 MB). Releases are built by [GitHub Actions](.github/workflows/release.yml) whenever a `v*` tag is pushed.
 
 ```
 src/PromptForge.Core     optimiser pipeline, provider client, settings, eval runner (cross-platform, unit-tested)
 src/PromptForge.App      Windows tray app: hotkeys, text capture/replace, review window, settings, voice, self-install
 tests/                   unit tests for the core
 eval/cases.json          optimiser test set
-installer/uninstall.cmd  uninstaller
+installer/               uninstall script
 ```
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Maneet Arvind Mehta
+
+## Acknowledgements
+
+- [Anthropic's prompt engineering guide](https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview), the basis of the rewriting rules
+- [Groq](https://groq.com) for the free inference tier
+- [DiffPlex](https://github.com/mmanela/diffplex) (word diff) and [NAudio](https://github.com/naudio/NAudio) (microphone capture)
