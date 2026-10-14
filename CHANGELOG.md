@@ -2,9 +2,10 @@
 
 All notable changes to PromptForge are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - 2026-10-15
 
 ### Added
+- **Update check.** Once a day (and from **Check for updates** in the tray menu), PromptForge asks GitHub for the latest release. If it's newer, a notification offers to update: the exe is downloaded, verified against `SHA256SUMS.txt`, and installed through the usual **Yes** prompt. It can be turned off in Settings → General and sends no prompt text, settings or keys.
 - **Image** task type: image-generation prompts (comma-separated descriptors, `--ar` style parameters) keep their form and only get typo fixes, instead of being rewritten into sentences.
 - The user's own template slots, like `[Brand]`, `{{first_name}}` and `${Role:default}`, are now protected details and are checked after every rewrite.
 - System prompt examples now include drafts that should come back unchanged.
@@ -13,10 +14,12 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - Eval: the judge now flags dropped requirements and changed intent, and 10 new cases cover missing material, casually stated rules, and questions or requests that must keep their type.
 
 ### Changed
+- Voice recording now uses NAudio 3.1 (was 2.4).
 - Rules, criteria and conditions the user states are treated as requirements however casually they're written, and every item a draft asks about is kept.
 - The rewrite keeps what kind of message the draft is: a question stays a question even with a word missing, and the requested action ("fix") isn't swapped for another ("explain"). Pasted text followed by a short request is treated as context, not as the task.
 
 ### Fixed
+- Voice: a silent recording (microphone muted or turned off in Windows, or nothing said) was sent for transcription, and Whisper typed text it invented from the silence, usually "Thank you.". Silent recordings are now caught before sending, and a notification says whether the mic recorded nothing at all or just no speech.
 - The repair pass for dropped details could make the model add an instruction like "Ensure the explanation includes the exact phrases…". It now asks for the details to be put back where they were, without meta-instructions.
 - Rewrites could come back in the assistant's voice ("Once I have this information, I can..."). The system prompt now says the rewrite is always the user's request to the AI.
 - Standard mode now puts any background the user gave before the request.
@@ -61,6 +64,7 @@ First public release. It contains everything from the 0.x builds plus the fixes 
 ### Added
 - Initial personal build: core optimiser, tray app, review window, settings, voice and eval runner.
 
+[1.1.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.0.0
 [0.3.1]: https://github.com/Maneet7805/PromptForge/commits/main
 [0.3.0]: https://github.com/Maneet7805/PromptForge/commits/main

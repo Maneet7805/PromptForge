@@ -18,6 +18,9 @@ internal sealed class TrayContext : ApplicationContext
     private readonly NotifyIcon _tray;
     private readonly OptimizeController _optimize;
     private readonly VoiceController _voice;
+    private readonly UpdateController _updates;
+    private readonly ToolStripMenuItem _updateItem = new("Check for updates");
+    private Action? _balloonAction;
     private readonly ToolStripMenuItem _pause = new("Pause shortcuts") { CheckOnClick = true };
     private readonly ToolStripMenuItem _restore = new("Copy last original text") { Enabled = false };
     private readonly ToolStripMenuItem _shortcutsInfo = new() { Enabled = false };
@@ -28,6 +31,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         _optimize = new OptimizeController(_services);
         _voice = new VoiceController(_services, _optimize);
+        _updates = new UpdateController(_services);
         _tray = new NotifyIcon { Icon = AppIcon.Get(), Text = "PromptForge", Visible = true, ContextMenuStrip = BuildMenu() };
         _tray.DoubleClick += (_, _) => OpenSettings();
         _tray.MouseUp += (_, e) =>
@@ -36,11 +40,32 @@ internal sealed class TrayContext : ApplicationContext
             if (e.Button == MouseButtons.Left)
                 typeof(NotifyIcon).GetMethod("ShowContextMenu", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.Invoke(_tray, null);
         };
-        _services.Notify = (message, icon) => _tray.ShowBalloonTip(4000, "PromptForge", message, icon);
+        _services.Notify = (message, icon) =>
+        {
+            _balloonAction = null;
+            _tray.ShowBalloonTip(4000, "PromptForge", message, icon);
+        };
+        _services.NotifyClickable = (message, icon, action) =>
+        {
+            _balloonAction = action;
+            _tray.ShowBalloonTip(10000, "PromptForge", message, icon);
+        };
+        _tray.BalloonTipClicked += (_, _) =>
+        {
+            var action = _balloonAction;
+            _balloonAction = null;
+            action?.Invoke();
+        };
+        _updates.AvailableChanged += () =>
+        {
+            var release = _updates.Available;
+            _updateItem.Text = release is null ? "Check for updates" : $"Update to {release.Version}…";
+        };
         _hotkeys.Pressed += OnHotkey;
 
         RegisterHotkeys(reportProblems: true);
         Log.Info($"started version={Application.ProductVersion} background={startedInBackground}");
+        _updates.Start();
 
         if (!HasUsableKey())
         {
@@ -92,6 +117,12 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(_pause);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Settings…", null, (_, _) => OpenSettings());
+        _updateItem.Click += async (_, _) =>
+        {
+            if (_updates.Available is not null) await _updates.InstallAsync();
+            else await _updates.CheckAsync(manual: true);
+        };
+        menu.Items.Add(_updateItem);
         var developer = new ToolStripMenuItem("Developer");
         developer.DropDownItems.Add("Run quality check on a test set…", null, async (_, _) => await RunEvalAsync());
         menu.Items.Add(developer);
@@ -230,6 +261,7 @@ internal sealed class TrayContext : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _hotkeys.Dispose();
+        _updates.Dispose();
         _services.Dispose();
         base.ExitThreadCore();
     }

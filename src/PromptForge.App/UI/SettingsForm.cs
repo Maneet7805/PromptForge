@@ -23,6 +23,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _review = new() { Text = "Show the review window before replacing text (recommended)", AutoSize = true };
     private readonly CheckBox _startup = new() { Text = "Start PromptForge when Windows starts", AutoSize = true };
     private readonly CheckBox _appHint = new() { Text = "Tell the optimiser what kind of app I'm typing in (e.g. \"Claude (browser)\")", AutoSize = true };
+    private readonly CheckBox _updates = new() { Text = "Check for updates once a day (contacts GitHub; sends no prompt text, settings or keys)", AutoSize = true };
     private readonly CheckBox _repair = new() { Text = "If exact details (paths, numbers, names) get dropped, ask the model to fix it (one extra call)", AutoSize = true };
     private readonly TextBox _personal = new() { Multiline = true, Height = 70, Width = 560, ScrollBars = ScrollBars.Vertical, PlaceholderText = "e.g. Year 3 computer science student. I mostly use C#, Java and Python on Windows." };
 
@@ -97,7 +98,7 @@ internal sealed class SettingsForm : Form
     private Control BuildGeneral() => Stack(
         Row(new Label { Text = "Default mode", AutoSize = true, Padding = new Padding(0, 4, 0, 0) }, _defaultMode,
             new Label { Text = "Light = minimal edits · Standard = balanced · Detailed = full structure for complex tasks", AutoSize = true, ForeColor = SystemColors.GrayText, Padding = new Padding(0, 4, 0, 0) }),
-        _review, _startup, _appHint, _repair,
+        _review, _startup, _appHint, _repair, _updates,
         new Label { Text = "About me (optional, used only when relevant; never used to invent task details):", AutoSize = true, Padding = new Padding(0, 10, 0, 0) },
         _personal);
 
@@ -196,6 +197,7 @@ internal sealed class SettingsForm : Form
         _startup.Checked = StartupRegistration.IsEnabled();
         _appHint.Checked = _s.SendAppHint;
         _repair.Checked = _s.RepairDroppedDetails;
+        _updates.Checked = _s.CheckForUpdates;
         _personal.Text = _s.PersonalContext;
 
         _primaryProvider.SelectedItem = ProviderPresets.Get(_s.Primary.Provider).Id;
@@ -243,6 +245,7 @@ internal sealed class SettingsForm : Form
         _s.ReviewBeforeReplace = _review.Checked;
         _s.SendAppHint = _appHint.Checked;
         _s.RepairDroppedDetails = _repair.Checked;
+        _s.CheckForUpdates = _updates.Checked;
         _s.PersonalContext = _personal.Text.Trim();
         _s.Primary = new EndpointSettings { Provider = (string)_primaryProvider.SelectedItem!, Model = _primaryModel.Text.Trim(), BaseUrl = NullIfEmpty(_primaryUrl.Text) };
         _s.Fallback = new EndpointSettings { Provider = (string)_fallbackProvider.SelectedItem!, Model = _fallbackModel.Text.Trim(), BaseUrl = NullIfEmpty(_fallbackUrl.Text), Enabled = _fallbackOn.Checked };

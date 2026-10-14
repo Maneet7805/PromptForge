@@ -4,6 +4,7 @@ using PromptForge.App.UI;
 using PromptForge.App.Voice;
 using PromptForge.Core.Llm;
 using PromptForge.Core.Settings;
+using PromptForge.Core.Voice;
 
 namespace PromptForge.App.Flows;
 
@@ -133,6 +134,18 @@ internal sealed class VoiceController(AppServices services, OptimizeController o
             if (duration < TimeSpan.FromMilliseconds(400))
             {
                 services.Notify("That recording was too short.", ToolTipIcon.Info);
+                return;
+            }
+
+            // Speech-to-text invents words from silence ("Thank you."), so silent clips are never sent.
+            var level = SpeechDetector.Analyze(_recorder.LastPcm, VoiceRecorder.Format.SampleRate);
+            if (level != AudioLevel.HasSound)
+            {
+                Log.Info($"voice skipped level={level} seconds={duration.TotalSeconds:0.0}");
+                services.Notify(level == AudioLevel.Muted
+                    ? "The microphone recorded nothing. It may be muted or turned off in Windows Settings → Sound."
+                    : "Didn't hear any speech, so nothing was typed. Check your microphone isn't muted, or speak a little closer to it.",
+                    ToolTipIcon.Info);
                 return;
             }
 

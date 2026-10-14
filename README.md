@@ -52,7 +52,7 @@ Most prompts are typed in a hurry: no deliverable, missing context, details buri
 4. Settings opens on the **Model** tab. Paste your key, click **Test connection**, then **Save**.
 5. Click into any text box, type a rough prompt, and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>.
 
-**Update:** download the newer `PromptForge.exe`, run it, and choose **Yes**. The running copy restarts; your settings and keys are kept.
+**Update:** from 1.1.0 on, PromptForge checks for a new release once a day and shows a notification. Click it (or **Update to …** in the tray menu), and it downloads the new exe, checks it against the release's `SHA256SUMS.txt`, and asks **Yes** to update. Your settings and keys are kept. You can also download the newer `PromptForge.exe` yourself, run it, and choose **Yes**. To turn the daily check off: Settings → General.
 **Uninstall:** run `uninstall.cmd` from the release zip. It removes the app, the shortcut and start-with-Windows, and asks whether to delete settings, keys and logs.
 
 ## Usage
@@ -156,7 +156,8 @@ A typical rewrite uses about 1,200 input tokens, most of which is the cached sys
 
 ## Privacy
 
-- Nothing leaves your PC until you press a shortcut. Then only the text you chose goes to your model provider, and dictated audio goes to your voice provider.
+- Your text never leaves your PC until you press a shortcut. Then only the text you chose goes to your model provider, and dictated audio goes to your voice provider.
+- The update check (on by default, Settings → General) asks `api.github.com` once a day which release is newest. It sends no prompt text, settings or keys.
 - API keys are encrypted with Windows DPAPI for your Windows account (`%APPDATA%\PromptForge\secrets.dat`).
 - No prompt history is stored. Logs (`%APPDATA%\PromptForge\logs`, kept 7 days) contain events and timings only: never prompt text, transcripts or keys.
 - Text PromptForge puts on the clipboard is marked to stay out of Windows clipboard history and cloud sync.

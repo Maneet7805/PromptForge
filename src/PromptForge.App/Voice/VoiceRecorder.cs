@@ -17,6 +17,9 @@ internal sealed class VoiceRecorder : IDisposable
     public static readonly WaveFormat Format = new(16000, 16, 1);
 
     public bool IsRecording { get; private set; }
+
+    /// <summary>The raw 16-bit PCM from the last recording, for checking it contains sound before transcribing.</summary>
+    public byte[] LastPcm { get; private set; } = [];
     public TimeSpan Duration => TimeSpan.FromSeconds(_pcm.Length / (double)Format.AverageBytesPerSecond);
 
     public void Start()
@@ -46,6 +49,7 @@ internal sealed class VoiceRecorder : IDisposable
         await Task.WhenAny(_stopped!.Task, Task.Delay(1500));
         byte[] pcm;
         lock (_gate) pcm = _pcm.ToArray();
+        LastPcm = pcm;
         return ToWav(pcm);
     }
 
