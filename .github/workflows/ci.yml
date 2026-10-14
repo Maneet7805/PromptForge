@@ -31,7 +31,7 @@ jobs:
         run: dotnet publish src/PromptForge.App -c Release -o publish
 
       - name: Upload build
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: PromptForge-${{ github.sha }}-win-x64
           path: publish/PromptForge.exe
