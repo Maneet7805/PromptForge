@@ -19,6 +19,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - The rewrite keeps what kind of message the draft is: a question stays a question even with a word missing, and the requested action ("fix") isn't swapped for another ("explain"). Pasted text followed by a short request is treated as context, not as the task.
 
 ### Fixed
+- Voice: a silent recording (microphone muted or turned off in Windows, or nothing said) was sent for transcription, and Whisper typed text it invented from the silence, usually "Thank you.". Silent recordings are now caught before sending, and a notification says whether the mic recorded nothing at all or just no speech.
 - The repair pass for dropped details could make the model add an instruction like "Ensure the explanation includes the exact phrases…". It now asks for the details to be put back where they were, without meta-instructions.
 - Rewrites could come back in the assistant's voice ("Once I have this information, I can..."). The system prompt now says the rewrite is always the user's request to the AI.
 - Standard mode now puts any background the user gave before the request.
