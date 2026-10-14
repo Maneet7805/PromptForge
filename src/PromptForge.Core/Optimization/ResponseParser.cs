@@ -66,6 +66,7 @@ public static class ResponseParser
         "study" or "learning" or "explanation" => TaskType.Study,
         "writing" or "editing" => TaskType.Writing,
         "planning" or "plan" => TaskType.Planning,
+        "image" or "image_generation" or "image-generation" => TaskType.Image,
         _ => TaskType.General,
     };
 

@@ -117,6 +117,10 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         var placeholder = PlaceholderRegex().Matches(output).FirstOrDefault(m => !evalCase.Draft.Contains(m.Value, StringComparison.OrdinalIgnoreCase));
         if (placeholder is not null) failures.Add("inserted a fill-in placeholder: " + placeholder.Value);
 
+        var assistantVoice = AssistantVoiceRegex().Match(output);
+        if (assistantVoice.Success && !evalCase.Draft.Contains(assistantVoice.Value, StringComparison.OrdinalIgnoreCase))
+            failures.Add($"written as the AI's reply, not the user's request: \"{assistantVoice.Value}\"");
+
         var filler = FillerRegex().Match(output);
         if (filler.Success && !evalCase.Draft.Contains(filler.Value, StringComparison.OrdinalIgnoreCase))
             failures.Add($"added filler: \"{filler.Value}\"");
@@ -277,4 +281,8 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
 
     [GeneratedRegex(@"world[- ]class|you are an expert|you are a highly|best practices|step[- ]by[- ]step|\bIMPORTANT\b|\bCRITICAL\b|\bMUST\b", RegexOptions.None)]
     private static partial Regex FillerRegex();
+
+    // Phrases that only make sense coming from the assistant, e.g. "Once I have this information, I can address...".
+    [GeneratedRegex(@"\b(?:once|when|after) I (?:have|receive|get) (?:this|that|the|these|your) (?:information|details|info)\b|\bI (?:can|will|'ll) (?:then )?(?:address|help you|assist you)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AssistantVoiceRegex();
 }

@@ -16,6 +16,10 @@ public class PreservationCheckerTests
     [InlineData("must be under 500 words", "500")]
     [InlineData("the title should be \"Quarterly Review\"", "Quarterly Review")]
     [InlineData("email me at a.b@uni.edu.my", "a.b@uni.edu.my")]
+    [InlineData("write an ad for [Brand] aimed at [target audience]", "[Brand]")]
+    [InlineData("write an ad for [Brand] aimed at [target audience]", "[target audience]")]
+    [InlineData("start the email with Hi {{ first_name }},", "{{ first_name }}")]
+    [InlineData("act as ${Role:teacher} for this lesson", "${Role:teacher}")]
     public void Extracts_exact_details(string draft, string expected)
     {
         Assert.Contains(expected, PreservationChecker.ExtractProtected(draft));
@@ -25,6 +29,8 @@ public class PreservationCheckerTests
     [InlineData("give me 3 ideas")]                    // single digits may become words
     [InlineData("e.g. something like that, i.e. short")] // abbreviations are not identifiers
     [InlineData("write a nice email to my professor")]
+    [InlineData("as shown in [1], it is faster")]            // citations are not slots
+    [InlineData("- [x] buy milk")]                           // checkboxes are not slots
     public void Ignores_ordinary_words(string draft)
     {
         Assert.Empty(PreservationChecker.ExtractProtected(draft));
@@ -60,5 +66,24 @@ public class PreservationCheckerTests
     {
         var missing = PreservationChecker.FindMissing("title \"Don't Panic\"", "Use the title \"Don\u2019t Panic\".");
         Assert.Empty(missing);
+    }
+}
+
+public class TemplatePlaceholderTests
+{
+    [Fact]
+    public void Dropped_placeholder_is_reported()
+    {
+        var draft = "write a tagline for [Brand]";
+        var rewrite = "Write a short, memorable tagline for the brand.";
+        Assert.Contains("[Brand]", PreservationChecker.FindMissing(draft, rewrite));
+    }
+
+    [Fact]
+    public void Markdown_links_and_indexing_are_not_placeholders()
+    {
+        var items = PreservationChecker.ExtractProtected("see [the docs](https://example.com) and fix array[i]");
+        Assert.DoesNotContain("[the docs]", items);
+        Assert.DoesNotContain("[i]", items);
     }
 }
