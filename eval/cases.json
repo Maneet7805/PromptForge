@@ -80,5 +80,10 @@
 
   { "id": "dropped-rule-decision", "category": "stated-rule", "draft": "I have a list of 8 issues that were identified before. 1 rule i will let you know we build that work in every situation and should be done that instead of in the heat of the moment i share a problem you randomly give a solution for it which maybe shouldn't be part of the application. now decide which of the 8 issues and this to implement and which not", "repeat": 3 },
   { "id": "dropped-rule-preference", "category": "stated-rule", "draft": "write me a cover letter for the data analyst internship at a bank, one thing tho never mention my gpa its low, focus on my sql projects" },
-  { "id": "dropped-rule-condition", "category": "stated-rule", "draft": "refactor my python script to be faster but only if it stays readable for my groupmates who are beginners, otherwise just tell me where the slow parts are" }
+  { "id": "dropped-rule-condition", "category": "stated-rule", "draft": "refactor my python script to be faster but only if it stays readable for my groupmates who are beginners, otherwise just tell me where the slow parts are" },
+
+  { "id": "intent-question-missing-word", "category": "intent", "draft": "also just merging to main deploy it to my laptop?", "repeat": 3 },
+  { "id": "intent-question-short", "category": "intent", "draft": "this works on windows 10 too?", "maxLengthRatio": 4 },
+  { "id": "intent-paste-then-fix", "category": "intent", "draft": "The rewrite turned your yes/no question into a how-to request. The cause is the missing \"does\" at the start of the question. The model read the draft as an instruction (\"merge and deploy\") instead of a question (\"does merging deploy it?\"). Fix this issue", "repeat": 3 },
+  { "id": "intent-fix-not-explain", "category": "intent", "draft": "login button does nothing on mobile safari, fix it" }
 ]

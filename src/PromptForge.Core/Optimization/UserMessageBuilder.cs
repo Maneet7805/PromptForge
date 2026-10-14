@@ -51,7 +51,7 @@ public static class UserMessageBuilder
             Your rewrite left out these exact details from the draft:
             {list}
 
-            Rewrite again so each of them appears exactly as written, in the place it belongs. Change nothing else. Respond with the same JSON object shape.
+            Rewrite again so each of them appears exactly as written, in the place it had in the draft. Don't add an instruction telling the AI to use or include them; just put them back. Change nothing else. Respond with the same JSON object shape.
             """;
     }
 }

@@ -10,12 +10,14 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - System prompt examples now include drafts that should come back unchanged.
 - Eval: 9 new cases (image, placeholders, assistant-voice, already-good) and a check that flags rewrites written as the AI's reply.
 - When a draft refers to material it doesn't include ("the attached file", "the code above", "the provided material"), the review window asks what it is instead of the rewrite guessing.
-- Eval: the judge now flags dropped requirements, and 6 new cases cover missing material and casually stated rules.
+- Eval: the judge now flags dropped requirements and changed intent, and 10 new cases cover missing material, casually stated rules, and questions or requests that must keep their type.
 
 ### Changed
 - Rules, criteria and conditions the user states are treated as requirements however casually they're written, and every item a draft asks about is kept.
+- The rewrite keeps what kind of message the draft is: a question stays a question even with a word missing, and the requested action ("fix") isn't swapped for another ("explain"). Pasted text followed by a short request is treated as context, not as the task.
 
 ### Fixed
+- The repair pass for dropped details could make the model add an instruction like "Ensure the explanation includes the exact phrases…". It now asks for the details to be put back where they were, without meta-instructions.
 - Rewrites could come back in the assistant's voice ("Once I have this information, I can..."). The system prompt now says the rewrite is always the user's request to the AI.
 - Standard mode now puts any background the user gave before the request.
 

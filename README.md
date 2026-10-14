@@ -126,7 +126,7 @@ The rewriting rules:
 
 ## Quality
 
-A test set of 64 prompts runs with code-graded checks. It covers simple, vague, coding, debugging, research, writing, study, planning, image-generation, template placeholders, references to material that isn't included, casually stated rules, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
+A test set of 68 prompts runs with code-graded checks. It covers simple, vague, coding, debugging, research, writing, study, planning, image-generation, template placeholders, references to material that isn't included, casually stated rules, questions and requests that must keep their type, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
 - dropped details (including the user's own `[slots]` and `{{slots}}`) and leftover markers
 - inserted placeholders and filler phrases
 - rewrites written in the AI's voice instead of the user's
@@ -134,7 +134,7 @@ A test set of 64 prompts runs with code-graded checks. It covers simple, vague, 
 - rewriting prompts that were already good
 - missing questions on vague drafts
 
-With `--judge`, a second model also checks for answering instead of rewriting, invented details, and dropped requirements (a rule or condition the user stated that the rewrite left out).
+With `--judge`, a second model also checks for answering instead of rewriting, invented details, dropped requirements (a rule or condition the user stated that the rewrite left out), and changed intent (a question turned into an instruction, "fix" turned into "explain", or pasted context turned into the task).
 
 | Version | Passed all checks | Median / p95 latency |
 | --- | --- | --- |
