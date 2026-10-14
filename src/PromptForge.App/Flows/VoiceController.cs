@@ -144,7 +144,7 @@ internal sealed class VoiceController(AppServices services, OptimizeController o
                 Log.Info($"voice skipped level={level} seconds={duration.TotalSeconds:0.0}");
                 services.Notify(level == AudioLevel.Muted
                     ? "The microphone recorded nothing. It may be muted or turned off in Windows Settings → Sound."
-                    : "Didn't hear any speech, so nothing was typed. Try again a little closer to the microphone.",
+                    : "Didn't hear any speech, so nothing was typed. Check your microphone isn't muted, or speak a little closer to it.",
                     ToolTipIcon.Info);
                 return;
             }
