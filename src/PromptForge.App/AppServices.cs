@@ -27,6 +27,9 @@ internal sealed class AppServices : IDisposable
     /// <summary>Shows a tray notification. Set by the tray context.</summary>
     public Action<string, ToolTipIcon> Notify { get; set; } = (_, _) => { };
 
+    /// <summary>Shows a tray notification that runs an action when clicked. Set by the tray context.</summary>
+    public Action<string, ToolTipIcon, Action> NotifyClickable { get; set; } = (_, _, _) => { };
+
     public OptimizerOptions OptimizerOptions => new()
     {
         Timeout = TimeSpan.FromSeconds(Math.Clamp(Settings.TimeoutSeconds, 10, 180)),

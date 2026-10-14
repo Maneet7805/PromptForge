@@ -61,6 +61,12 @@ public sealed class AppSettings
     public bool SendAppHint { get; set; } = true;
 
     public bool RepairDroppedDetails { get; set; } = true;
+
+    /// <summary>Check GitHub Releases for a newer version once a day. Sends no prompt text, settings or keys.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>When the last automatic update check ran, so restarts don't check again within a day.</summary>
+    public DateTime? LastUpdateCheckUtc { get; set; }
     public int TimeoutSeconds { get; set; } = 45;
     public HotkeySettings Hotkeys { get; set; } = new();
     public VoiceSettings Voice { get; set; } = new();
