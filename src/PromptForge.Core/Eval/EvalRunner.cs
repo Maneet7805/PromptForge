@@ -32,7 +32,8 @@ public sealed record EvalCase
     public int Repeat { get; init; } = 1;
 }
 
-public sealed record JudgeVerdict(bool AnsweredInsteadOfRewriting, bool InventedDetails, string InventedExamples, bool ClearerThanOriginal, bool AppropriateLength, string Comment);
+public sealed record JudgeVerdict(bool AnsweredInsteadOfRewriting, bool InventedDetails, string InventedExamples, bool ClearerThanOriginal, bool AppropriateLength, string Comment,
+    bool DroppedRequirements = false, string DroppedExamples = "");
 
 public sealed record EvalCaseResult
 {
@@ -86,6 +87,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
                         {
                             if (verdict.AnsweredInsteadOfRewriting) failures.Add("judge: answered the draft instead of rewriting it");
                             if (verdict.InventedDetails) failures.Add($"judge: invented details ({verdict.InventedExamples})");
+                            if (verdict.DroppedRequirements) failures.Add($"judge: dropped a stated requirement ({verdict.DroppedExamples})");
                         }
                     }
                     caseResult = new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Judge = verdict };
@@ -150,6 +152,8 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             {"answered_instead_of_rewriting": true/false (true if the rewrite performs or answers the task rather than being a prompt that asks for it),
              "invented_details": true/false (true if the rewrite adds specific facts, technologies, numbers, deadlines, audiences or requirements the draft did not state or clearly imply; asking the AI to state assumptions or ask questions is fine),
              "invented_examples": "the invented details, or empty",
+             "dropped_requirements": true/false (true if the draft states a rule, criterion, condition, preference or item to cover, however casually, and the rewrite leaves it out or weakens it),
+             "dropped_examples": "what was dropped, or empty",
              "clearer_than_original": true/false,
              "appropriate_length": true/false (false if a simple request was padded or a complex one was left vague),
              "comment": "one short sentence"}
@@ -170,7 +174,8 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             bool B(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
             string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
             return new JudgeVerdict(B("answered_instead_of_rewriting"), B("invented_details"), S("invented_examples"),
-                B("clearer_than_original"), B("appropriate_length"), S("comment"));
+                B("clearer_than_original"), B("appropriate_length"), S("comment"),
+                B("dropped_requirements"), S("dropped_examples"));
         }
         catch (Exception ex) when (ex is LlmException or JsonException)
         {
@@ -202,6 +207,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             sb.AppendLine(inv, $"| Judge: appropriate length | {judged.Count(r => r.Judge!.AppropriateLength)}/{judged.Count} |");
             sb.AppendLine(inv, $"| Judge: invented details | {judged.Count(r => r.Judge!.InventedDetails)}/{judged.Count} |");
             sb.AppendLine(inv, $"| Judge: answered instead of rewriting | {judged.Count(r => r.Judge!.AnsweredInsteadOfRewriting)}/{judged.Count} |");
+            sb.AppendLine(inv, $"| Judge: dropped a stated requirement | {judged.Count(r => r.Judge!.DroppedRequirements)}/{judged.Count} |");
         }
         sb.AppendLine(inv, $"| Latency p50 / p95 | {Pct(0.5):0} ms / {Pct(0.95):0} ms |");
         sb.AppendLine(inv, $"| Tokens (prompt / cached / completion) | {ok.Sum(r => r.Result!.PromptTokens):N0} / {ok.Sum(r => r.Result!.CachedTokens):N0} / {ok.Sum(r => r.Result!.CompletionTokens):N0} |");
@@ -254,7 +260,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
                 if (res.Questions.Count > 0) sb.AppendLine("\nQuestions: " + string.Join(" | ", res.Questions));
                 if (res.Changes.Count > 0) sb.AppendLine("\nChanges: " + string.Join(" | ", res.Changes));
                 if (res.Warnings.Count > 0) sb.AppendLine("\nWarnings: " + string.Join(" | ", res.Warnings));
-                if (r.Judge is { } j) sb.AppendLine(inv, $"\nJudge: clearer={j.ClearerThanOriginal}, length ok={j.AppropriateLength}, invented={j.InventedDetails} {j.InventedExamples}, answered={j.AnsweredInsteadOfRewriting}. {j.Comment}");
+                if (r.Judge is { } j) sb.AppendLine(inv, $"\nJudge: clearer={j.ClearerThanOriginal}, length ok={j.AppropriateLength}, invented={j.InventedDetails} {j.InventedExamples}, answered={j.AnsweredInsteadOfRewriting}, dropped={j.DroppedRequirements} {j.DroppedExamples}. {j.Comment}");
             }
             else
             {

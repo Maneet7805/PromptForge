@@ -9,6 +9,11 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - The user's own template slots, like `[Brand]`, `{{first_name}}` and `${Role:default}`, are now protected details and are checked after every rewrite.
 - System prompt examples now include drafts that should come back unchanged.
 - Eval: 9 new cases (image, placeholders, assistant-voice, already-good) and a check that flags rewrites written as the AI's reply.
+- When a draft refers to material it doesn't include ("the attached file", "the code above", "the provided material"), the review window asks what it is instead of the rewrite guessing.
+- Eval: the judge now flags dropped requirements, and 6 new cases cover missing material and casually stated rules.
+
+### Changed
+- Rules, criteria and conditions the user states are treated as requirements however casually they're written, and every item a draft asks about is kept.
 
 ### Fixed
 - Rewrites could come back in the assistant's voice ("Once I have this information, I can..."). The system prompt now says the rewrite is always the user's request to the AI.

@@ -298,4 +298,15 @@ public class EvalGradingNumberTests
         };
         Assert.DoesNotContain(EvalRunner.Grade(c, result), f => f.Contains("AI's reply"));
     }
+
+    [Fact]
+    public void Report_counts_dropped_requirements_from_the_judge()
+    {
+        var c = new EvalCase { Id = "t", Category = "stated-rule", Draft = "decide which issues to build, only ones that work in every situation" };
+        var result = new OptimizeResult { Original = c.Draft, Prompt = "Decide which issues to build.", TaskType = TaskType.Planning, Verdict = Verdict.Rewritten, Model = "m" };
+        var judge = new JudgeVerdict(false, false, "", true, true, "dropped the rule", DroppedRequirements: true, DroppedExamples: "only ones that work in every situation");
+        var report = EvalRunner.BuildReport([new EvalCaseResult { Case = c, Result = result, Judge = judge }], "m");
+        Assert.Contains("| Judge: dropped a stated requirement | 1/1 |", report);
+        Assert.Contains("dropped=True only ones that work in every situation", report);
+    }
 }
