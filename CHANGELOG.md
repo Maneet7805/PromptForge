@@ -2,6 +2,18 @@
 
 All notable changes to PromptForge are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Image** task type: image-generation prompts (comma-separated descriptors, `--ar` style parameters) keep their form and only get typo fixes, instead of being rewritten into sentences.
+- The user's own template slots, like `[Brand]`, `{{first_name}}` and `${Role:default}`, are now protected details and are checked after every rewrite.
+- System prompt examples now include drafts that should come back unchanged.
+- Eval: 9 new cases (image, placeholders, assistant-voice, already-good) and a check that flags rewrites written as the AI's reply.
+
+### Fixed
+- Rewrites could come back in the assistant's voice ("Once I have this information, I can..."). The system prompt now says the rewrite is always the user's request to the AI.
+- Standard mode now puts any background the user gave before the request.
+
 ## [1.0.0] - 2026-10-13
 
 First public release. It contains everything from the 0.x builds plus the fixes below.

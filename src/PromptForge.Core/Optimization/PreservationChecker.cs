@@ -4,7 +4,7 @@ namespace PromptForge.Core.Optimization;
 
 /// <summary>
 /// Deterministic check that exact details from the draft survived the rewrite: URLs, paths,
-/// file names, inline code, quoted text, identifiers and numbers. The model is told to keep
+/// file names, inline code, quoted text, template placeholders, identifiers and numbers. The model is told to keep
 /// them; this catches the cases where it didn't, without a second model call.
 /// </summary>
 public static partial class PreservationChecker
@@ -48,6 +48,7 @@ public static partial class PreservationChecker
         AddAll(FileNameRegex());
         AddAll(DoubleQuotedRegex(), group: 1);
         AddAll(CurlyQuotedRegex(), group: 1);
+        AddAll(TemplatePlaceholderRegex());
         AddAll(IdentifierRegex());
         AddAll(NumberRegex());
 
@@ -89,6 +90,13 @@ public static partial class PreservationChecker
 
     [GeneratedRegex("“([^”\n]{2,100})”")]
     private static partial Regex CurlyQuotedRegex();
+
+    // Template slots the user wrote on purpose: {{name}}, ${Topic:default}, [Brand], [target audience].
+    // Square brackets need a letter then at least one more character (so citations like [1] and checkboxes
+    // like [x] don't count), must not follow a word (array[i] is code, not a slot) and must not be markdown
+    // link text, i.e. not followed by "(".
+    [GeneratedRegex(@"\{\{\s*[A-Za-z_][\w.\- ]{0,40}\}\}|\$\{[A-Za-z_][^}\n]{0,60}\}|(?<![\[\w])\[[A-Za-z][\w \-/]{1,40}\](?![\(\]])")]
+    private static partial Regex TemplatePlaceholderRegex();
 
     // camelCase / PascalCase with an inner capital, snake_case, SCREAMING_CASE, dotted.member.access, call()
     // Dotted names need segments of 2+ characters so "e.g" and "i.e" don't count.

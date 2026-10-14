@@ -126,9 +126,10 @@ The rewriting rules:
 
 ## Quality
 
-A test set of 49 prompts runs with code-graded checks. It covers simple, vague, coding, debugging, research, writing, study, planning, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
-- dropped details and leftover markers
-- placeholders and filler phrases
+A test set of 58 prompts runs with code-graded checks. It covers simple, vague, coding, debugging, research, writing, study, planning, image-generation, template placeholders, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
+- dropped details (including the user's own `[slots]` and `{{slots}}`) and leftover markers
+- inserted placeholders and filler phrases
+- rewrites written in the AI's voice instead of the user's
 - invented numbers and over-expansion
 - rewriting prompts that were already good
 - missing questions on vague drafts

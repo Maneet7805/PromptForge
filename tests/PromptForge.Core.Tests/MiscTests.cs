@@ -272,4 +272,30 @@ public class EvalGradingNumberTests
         var result = new OptimizeResult { Original = c.Draft, Prompt = "What does HTTP status 418 mean?", TaskType = TaskType.General, Verdict = Verdict.LightEdit, Model = "m" };
         Assert.Empty(EvalRunner.Grade(c, result));
     }
+
+    [Fact]
+    public void Flags_a_rewrite_written_in_the_assistants_voice()
+    {
+        var c = new EvalCase { Id = "t", Category = "voice", Draft = "fix the issues you found" };
+        var result = new OptimizeResult
+        {
+            Original = c.Draft,
+            Prompt = "Please list the specific issues you want fixed. Once I have this information, I can address all the listed issues.",
+            TaskType = TaskType.Coding, Verdict = Verdict.Rewritten, Model = "m",
+        };
+        Assert.Contains(EvalRunner.Grade(c, result), f => f.Contains("AI's reply"));
+    }
+
+    [Fact]
+    public void A_normal_request_is_not_flagged_as_assistant_voice()
+    {
+        var c = new EvalCase { Id = "t", Category = "voice", Draft = "fix the bugs in app.py" };
+        var result = new OptimizeResult
+        {
+            Original = c.Draft,
+            Prompt = "Fix the bugs in app.py. If you need the error message, ask me for it before guessing.",
+            TaskType = TaskType.Debugging, Verdict = Verdict.Rewritten, Model = "m",
+        };
+        Assert.DoesNotContain(EvalRunner.Grade(c, result), f => f.Contains("AI's reply"));
+    }
 }

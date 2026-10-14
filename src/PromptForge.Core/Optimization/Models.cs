@@ -9,6 +9,7 @@ public enum OptimizeMode
 }
 
 /// <summary>Task categories the optimiser tailors its edits to. Auto lets the model decide.</summary>
+/// <remarks>Append new values at the end: the review window maps its dropdown index straight onto this enum.</remarks>
 public enum TaskType
 {
     Auto,
@@ -19,6 +20,7 @@ public enum TaskType
     Writing,
     Planning,
     General,
+    Image,
 }
 
 /// <summary>What the model judged it needed to do to the draft.</summary>

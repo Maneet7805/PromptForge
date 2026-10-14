@@ -26,6 +26,23 @@ public class ResponseParserTests
         Assert.Empty(parsed.Changes);
     }
 
+    [Theory]
+    [InlineData("image")]
+    [InlineData("image_generation")]
+    public void Parses_the_image_task_type(string value)
+    {
+        Assert.Equal(TaskType.Image, ResponseParser.ParseTaskType(value));
+    }
+
+    [Fact]
+    public void New_task_types_are_appended_so_dropdown_indexes_stay_stable()
+    {
+        // ReviewForm casts the dropdown's SelectedIndex to TaskType, so existing values must keep their numbers.
+        Assert.Equal(0, (int)TaskType.Auto);
+        Assert.Equal(7, (int)TaskType.General);
+        Assert.Equal(8, (int)TaskType.Image);
+    }
+
     [Fact]
     public void Unchanged_verdict_may_omit_the_prompt()
     {
