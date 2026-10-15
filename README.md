@@ -170,6 +170,8 @@ A typical rewrite uses about 1,200 input tokens, most of which is the cached sys
 | "Couldn't read text here" | The field is empty, or the app runs as administrator. Select the text and use *Optimise selection*, or copy it manually |
 | "Rate limit reached" | Wait a few seconds; the fallback model is used automatically |
 | Result copied instead of replaced | Focus changed, the field changed, or the app rejected the paste. Press <kbd>Ctrl</kbd>+<kbd>V</kbd> |
+| A shortcut types a character (e.g. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> types "ḍ") | Your keyboard layout uses <kbd>Ctrl</kbd>+<kbd>Alt</kbd> as AltGr. PromptForge warns about this at startup and in Settings; pick a shortcut without <kbd>Ctrl</kbd>+<kbd>Alt</kbd>, e.g. <kbd>Alt</kbd>+<kbd>V</kbd> |
+| Voice records the wrong microphone | PromptForge uses Windows' default recording device: Settings → System → Sound → Input |
 | Voice: "Couldn't start the microphone" | Windows Settings → Privacy & security → Microphone → allow desktop apps |
 | Anything else | Tray icon → *Open logs folder*, check the latest `promptforge-*.log`, and [open an issue](https://github.com/Maneet7805/PromptForge/issues/new/choose) |
 

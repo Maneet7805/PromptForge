@@ -281,6 +281,18 @@ internal sealed class SettingsForm : Form
             return;
         }
 
+        var conflicts = chords
+            .Where(c => !string.IsNullOrWhiteSpace(c.Item2) && HotkeyChord.TryParse(c.Item2, out _))
+            .Select(c => { HotkeyChord.TryParse(c.Item2, out var chord); return HotkeyManager.AltGrConflict(chord); })
+            .OfType<string>()
+            .ToList();
+        if (conflicts.Count > 0 &&
+            MessageBox.Show(this, string.Join("\n\n", conflicts) + "\n\nSave these shortcuts anyway?", "PromptForge",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+        {
+            return;
+        }
+
         foreach (var (id, box) in _keys.Where(k => !string.IsNullOrWhiteSpace(k.Value.Text)))
             _secrets.Set(id, box.Text.Trim());
         try

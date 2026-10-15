@@ -72,6 +72,37 @@ internal sealed class HotkeyManager : NativeWindow, IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Windows treats Ctrl+Alt as AltGr, so on many keyboard layouts (German, Polish, French, English (India)…)
+    /// Ctrl+Alt+key types a character. A shortcut on that chord blocks the character while PromptForge runs,
+    /// and if the shortcut isn't registered the character gets typed instead. Returns a warning naming the
+    /// character for any installed layout, or null.
+    /// </summary>
+    public static string? AltGrConflict(HotkeyChord chord)
+    {
+        if (!(chord.Ctrl && chord.Alt) || chord.Win || !TryGetVirtualKey(chord, out var key)) return null;
+        var count = Win32.GetKeyboardLayoutList(0, null);
+        if (count <= 0) return null;
+        var layouts = new IntPtr[count];
+        count = Win32.GetKeyboardLayoutList(count, layouts);
+
+        var state = new byte[256];
+        foreach (var vk in new[] { Keys.ControlKey, Keys.LControlKey, Keys.Menu, Keys.RMenu }) state[(int)vk] = 0x80;
+        if (chord.Shift) state[(int)Keys.ShiftKey] = state[(int)Keys.LShiftKey] = 0x80;
+
+        var buffer = new System.Text.StringBuilder(8);
+        foreach (var layout in layouts.Take(count))
+        {
+            buffer.Clear();
+            var scan = Win32.MapVirtualKeyExW((uint)key, 0, layout);
+            var n = Win32.ToUnicodeEx((uint)key, scan, state, buffer, buffer.Capacity, Win32.TOUNICODE_NO_STATE_CHANGE, layout);
+            if (n == 0 || buffer.Length == 0 || char.IsControl(buffer[0])) continue;
+            var typed = n > 0 ? buffer.ToString(0, Math.Min(n, buffer.Length)) : buffer.ToString(0, 1); // n < 0: dead key
+            return $"{chord} types \"{typed}\" on one of your keyboard layouts, so you can't type that character while PromptForge uses it. If you need it, pick a shortcut without Ctrl+Alt in Settings → Shortcuts.";
+        }
+        return null;
+    }
+
     public static bool TryGetVirtualKey(HotkeyChord chord, out Keys key) =>
         Enum.TryParse(chord.Key, ignoreCase: true, out key) && key is not (Keys.None or Keys.ControlKey or Keys.ShiftKey or Keys.Menu);
 
