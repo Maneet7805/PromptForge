@@ -85,5 +85,14 @@
   { "id": "intent-question-missing-word", "category": "intent", "draft": "also just merging to main deploy it to my laptop?", "repeat": 3 },
   { "id": "intent-question-short", "category": "intent", "draft": "this works on windows 10 too?", "maxLengthRatio": 4 },
   { "id": "intent-paste-then-fix", "category": "intent", "draft": "The rewrite turned your yes/no question into a how-to request. The cause is the missing \"does\" at the start of the question. The model read the draft as an instruction (\"merge and deploy\") instead of a question (\"does merging deploy it?\"). Fix this issue", "repeat": 3 },
-  { "id": "intent-fix-not-explain", "category": "intent", "draft": "login button does nothing on mobile safari, fix it" }
+  { "id": "intent-fix-not-explain", "category": "intent", "draft": "login button does nothing on mobile safari, fix it" },
+
+  { "id": "intent-standing-instruction", "category": "intent", "draft": "if there is an issue let me know if i can fix it … maybe here i cant help but just make sure to keep in mind whenever you come across you suggest me" },
+  { "id": "intent-set-up-not-plan", "category": "intent", "draft": "i suggest notion but i would like to hear your recommendation. Can you setup everything if you agree with notion or give instructions on what and how we can use for this" },
+  { "id": "intent-keep-every-part", "category": "intent", "draft": "okay Alt + V worked\nchanging shortcut didnt let me switch to ctrl alt D when i tried to do that it just did ctrl D but no warning\nokay can you then create github issue of all prompt i listed" },
+  { "id": "added-ask-first-fallback", "category": "added-requests", "draft": "from previous chat continue what we were working now pull the context and list things to do" },
+  { "id": "added-deliverables-go-ahead", "category": "added-requests", "draft": "Go ahead and fix all the issues and create pr for them as you see fit" },
+  { "id": "voice-statement-stays-statement", "category": "voice", "draft": "i have turned on the memory", "maxLengthRatio": 2.5 },
+  { "id": "intent-numbered-answers", "category": "intent", "draft": "1. i did\n2. you can do that\n3. you can do that as well", "maxLengthRatio": 3 },
+  { "id": "app-hint-is-not-the-subject", "category": "added-requests", "draft": "When i clicked on check for update it showed update available i click on it abd then this happened", "writtenIn": "the Claude desktop app" }
 ]

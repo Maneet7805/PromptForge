@@ -44,7 +44,7 @@ Quit the installed PromptForge first, because only one copy can run at a time.
 | Provider client and presets | `src/PromptForge.Core/Llm/` |
 | Text capture / paste / verification | `src/PromptForge.App/TextAccess/` |
 | Review and settings windows | `src/PromptForge.App/UI/` |
-| Quality test set | `eval/cases.json` |
+| Quality test set | `eval/cases.json` (how to run and compare: `eval/README.md`) |
 
 ## Pull requests
 

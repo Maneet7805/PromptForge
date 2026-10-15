@@ -28,6 +28,12 @@ public sealed record OptimizerOptions
 
     /// <summary>Longest wait honoured for a rate-limit "retry after" before giving up on an endpoint.</summary>
     public TimeSpan MaxRateLimitWait { get; init; } = TimeSpan.FromSeconds(6);
+
+    /// <summary>
+    /// The system prompt. Only the quality check changes it, to compare another version of the
+    /// instructions (an older release, or a candidate fix) without building a new exe.
+    /// </summary>
+    public string Instructions { get; init; } = SystemPrompt.Text;
 }
 
 /// <summary>
@@ -58,7 +64,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
         var masked = BlockMasker.Mask(original);
         var messages = new List<ChatMessage>
         {
-            new("system", SystemPrompt.Text),
+            new("system", options.Instructions),
             new("user", UserMessageBuilder.Build(request, masked)),
         };
         var chatOptions = new ChatOptions
