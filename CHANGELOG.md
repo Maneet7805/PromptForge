@@ -2,6 +2,15 @@
 
 All notable changes to PromptForge are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-10-15
+
+### Fixed
+- Voice now records from Windows' default recording device (and follows it if you change it). Before, it always used the first microphone in the device list, which on PCs with a headset, webcam or several mics could be the wrong one.
+- Shortcuts that clash with your keyboard layout are now explained. On layouts where Ctrl+Alt acts as AltGr (German, Polish, French, English (India) and many more), Ctrl+Alt+key types a character: PromptForge now names the character at startup and before saving in Settings, instead of silently blocking it or failing.
+
+### Changed
+- Updated to NAudio 3's renamed recording API (`WaveIn`), removing the build warnings.
+
 ## [1.1.0] - 2026-10-15
 
 ### Added
@@ -64,6 +73,7 @@ First public release. It contains everything from the 0.x builds plus the fixes 
 ### Added
 - Initial personal build: core optimiser, tray app, review window, settings, voice and eval runner.
 
+[1.1.1]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.0.0
 [0.3.1]: https://github.com/Maneet7805/PromptForge/commits/main

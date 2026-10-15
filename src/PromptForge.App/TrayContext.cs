@@ -186,6 +186,7 @@ internal sealed class TrayContext : ApplicationContext
         {
             if (string.IsNullOrWhiteSpace(chord)) return;
             if (_hotkeys.Register(action, chord) is { } problem) problems.Add(problem);
+            else if (HotkeyChord.TryParse(chord, out var parsed) && HotkeyManager.AltGrConflict(parsed) is { } conflict) problems.Add(conflict);
         }
         Try(HotkeyAction.Optimize, hk.Optimize);
         Try(HotkeyAction.OptimizeSelection, hk.OptimizeSelection);

@@ -99,6 +99,18 @@ internal static partial class Win32
     [LibraryImport("user32.dll")]
     public static partial uint MapVirtualKeyW(uint uCode, uint uMapType);
 
+    [LibraryImport("user32.dll")]
+    public static partial uint MapVirtualKeyExW(uint uCode, uint uMapType, IntPtr dwhkl);
+
+    [DllImport("user32.dll")]
+    public static extern int GetKeyboardLayoutList(int nBuff, [Out] IntPtr[]? lpList);
+
+    /// <summary>wFlags bit 2 (0x4): don't change the keyboard state, so dead keys aren't consumed (Windows 10 1607+).</summary>
+    public const uint TOUNICODE_NO_STATE_CHANGE = 0x4;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState, StringBuilder pwszBuff, int cchBuff, uint wFlags, IntPtr dwhkl);
+
     [LibraryImport("user32.dll", SetLastError = true)]
     public static partial uint SendInput(uint nInputs, [In] INPUT[] pInputs, int cbSize);
 

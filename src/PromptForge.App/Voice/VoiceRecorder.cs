@@ -11,10 +11,12 @@ internal sealed class VoiceRecorder : IDisposable
 {
     private readonly object _gate = new();
     private readonly MemoryStream _pcm = new();
-    private WaveInEvent? _waveIn;
+    private WaveIn? _waveIn;
     private TaskCompletionSource? _stopped;
 
     public static readonly WaveFormat Format = new(16000, 16, 1);
+
+    private const int DefaultDevice = -1;
 
     public bool IsRecording { get; private set; }
 
@@ -24,8 +26,10 @@ internal sealed class VoiceRecorder : IDisposable
 
     public void Start()
     {
-        if (WaveInEvent.DeviceCount == 0) throw new InvalidOperationException("No microphone was found.");
-        _waveIn = new WaveInEvent { WaveFormat = Format, BufferMilliseconds = 100, DeviceNumber = 0 };
+        if (WaveIn.DeviceCount == 0) throw new InvalidOperationException("No microphone was found.");
+        // -1 is WAVE_MAPPER: Windows' default recording device, following it if the user changes it.
+        // Device 0 is just the first microphone in the list, which isn't the default when there are several.
+        _waveIn = new WaveIn { WaveFormat = Format, BufferMilliseconds = 100, DeviceNumber = DefaultDevice };
         _waveIn.DataAvailable += (_, e) =>
         {
             lock (_gate) _pcm.Write(e.Buffer, 0, e.BytesRecorded);
