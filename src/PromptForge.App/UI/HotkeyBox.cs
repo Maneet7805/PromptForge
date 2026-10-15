@@ -28,13 +28,17 @@ internal sealed class HotkeyBox : TextBox
         if (key is Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LWin or Keys.RWin or Keys.None)
             return true;
 
+        // On layouts where Ctrl+Alt acts as AltGr, Windows can leave Alt out of keyData, so Ctrl+Alt+D
+        // would be recorded as Ctrl+D. Ask for the physical key state as well.
         var chord = new HotkeyChord(
-            mods.HasFlag(Keys.Control),
-            mods.HasFlag(Keys.Alt),
-            mods.HasFlag(Keys.Shift),
+            mods.HasFlag(Keys.Control) || IsDown(Keys.ControlKey),
+            mods.HasFlag(Keys.Alt) || IsDown(Keys.Menu),
+            mods.HasFlag(Keys.Shift) || IsDown(Keys.ShiftKey),
             false,
             key.ToString());
         Text = chord.ToString();
         return true;
     }
+
+    private static bool IsDown(Keys key) => (Native.Win32.GetAsyncKeyState((int)key) & 0x8000) != 0;
 }

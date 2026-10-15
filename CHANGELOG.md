@@ -6,6 +6,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ### Fixed
 - Voice now records from Windows' default recording device (and follows it if you change it). Before, it always used the first microphone in the device list, which on PCs with a headset, webcam or several mics could be the wrong one.
+- The shortcut box in Settings recorded Ctrl+Alt+key as Ctrl+key on AltGr keyboard layouts, because Windows left Alt out of the keypress. It now reads the physical modifier keys too.
 - Shortcuts that clash with your keyboard layout are now explained. On layouts where Ctrl+Alt acts as AltGr (German, Polish, French, English (India) and many more), Ctrl+Alt+key types a character: PromptForge now names the character at startup and before saving in Settings, instead of silently blocking it or failing.
 
 ### Changed
