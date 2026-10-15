@@ -14,7 +14,7 @@ namespace PromptForge.App;
 /// </summary>
 internal static class EvalCommand
 {
-    public const int DefaultRepeat = 3;
+    public const int DefaultRepeat = EvalRunner.DefaultRepeat;
 
     private const string Usage =
         "Usage:\nPromptForge.exe --eval <cases.json> <output folder> [--judge] [--repeat N] [--system-prompt <file>] [--pause-seconds N]\n" +
@@ -39,6 +39,13 @@ internal static class EvalCommand
         if (args.Length < 3)
         {
             MessageBox.Show(Usage, "PromptForge eval");
+            return 2;
+        }
+        var output = Path.GetFullPath(args[2]);
+        if (output.Equals(Path.GetFullPath(args[0]), StringComparison.OrdinalIgnoreCase) ||
+            output.Equals(Path.GetFullPath(args[1]), StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("The comparison would overwrite one of the runs. Choose a different output file.", "PromptForge eval");
             return 2;
         }
         try

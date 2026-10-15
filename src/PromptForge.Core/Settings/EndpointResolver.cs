@@ -53,10 +53,15 @@ public static class EndpointResolver
         if (cfg is { Enabled: true } && !string.IsNullOrWhiteSpace(cfg.Model) &&
             Build(cfg.Provider, cfg.Model, cfg.BaseUrl, secrets, out _) is { } judge)
         {
-            return (judge, !optimiser.Any(e => e.BaseUrl.TrimEnd('/').Equals(judge.BaseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)));
+            return (judge, !optimiser.Any(e => SameService(e, judge)));
         }
         return (optimiser.Count > 1 ? optimiser[1] : optimiser[0], false);
     }
+
+    // Groq and Gemini are one service each whatever the URL; custom and local endpoints are told apart by URL.
+    private static bool SameService(LlmEndpoint a, LlmEndpoint b) =>
+        a.Preset.Id == b.Preset.Id &&
+        (a.Preset.Id is not ("custom" or "ollama") || a.BaseUrl.TrimEnd('/').Equals(b.BaseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
 
     public static LlmEndpoint? ResolveVoice(AppSettings settings, ISecretStore secrets) =>
         Build(settings.Voice.Provider, settings.Voice.Model, settings.Voice.BaseUrl, secrets, out _);

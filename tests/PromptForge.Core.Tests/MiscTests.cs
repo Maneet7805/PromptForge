@@ -231,6 +231,31 @@ public class SettingsTests
         Assert.Equal("gemini", settings.Judge.Provider);
     }
 
+    [Fact]
+    public void A_null_judge_in_the_settings_file_gets_the_default()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, """{"version":1,"judge":null}""");
+            Assert.Equal("gemini", SettingsStore.Load(path).Judge.Provider);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Same_hosted_provider_at_another_url_is_not_independent()
+    {
+        var secrets = new MemorySecrets();
+        secrets.Set("groq", "gsk_test");
+        var settings = new AppSettings { Judge = new EndpointSettings { Provider = "groq", Model = "qwen/qwen3-32b" } };
+        var optimiser = new[] { new LlmEndpoint(ProviderPresets.Groq, "https://api.groq.com/openai/v1/", "openai/gpt-oss-120b", "k") };
+        Assert.False(EndpointResolver.ResolveJudge(settings, secrets, optimiser).Independent);
+    }
+
     internal sealed class MemorySecrets : ISecretStore
     {
         private readonly Dictionary<string, string> _values = [];
@@ -418,10 +443,33 @@ public class EvalGradingNumberTests
         Assert.Contains("| broke | 3/3 | 1/3 | worse |", report);
         Assert.Contains("| wobble | 1/3 | 2/3 | noise |", report);
         Assert.DoesNotContain("| steady |", report);
-        Assert.Contains("Better: 1. Worse: 1. Noise (moved less than half the runs): 1.", report);
+        Assert.Contains("Better: 1. Worse: 1. Noise: 1.", report);
         Assert.Contains("Only in before: gone", report);
         Assert.Contains("Only in after: new", report);
         Assert.True(report.IndexOf("| broke |", StringComparison.Ordinal) < report.IndexOf("| fixed |", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_single_run_flip_is_noise()
+    {
+        var report = EvalComparison.Build([new CaseRun("once", true)], [new CaseRun("once", false)], "a", "b");
+        Assert.Contains("| once | 1/1 | 0/1 | noise |", report);
+        Assert.Contains("counted as noise", report);
+    }
+
+    [Fact]
+    public void Duplicate_case_ids_are_rejected()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, """[{"id":"a","category":"c","draft":"x"},{"id":"a","category":"c","draft":"y"}]""");
+            Assert.Throws<InvalidDataException>(() => EvalRunner.LoadCases(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]

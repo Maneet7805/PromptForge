@@ -99,6 +99,7 @@ public static class SettingsStore
             settings.Fallback ??= new EndpointSettings { Enabled = false };
             settings.Hotkeys ??= new HotkeySettings();
             settings.Voice ??= new VoiceSettings();
+            settings.Judge ??= new AppSettings().Judge;
             return settings;
         }
         catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException)

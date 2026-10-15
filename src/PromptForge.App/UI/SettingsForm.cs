@@ -36,7 +36,8 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _fallbackModel = new() { Width = 260 };
     private readonly TextBox _fallbackUrl = new() { Width = 360, PlaceholderText = "Base URL (custom/Ollama only)" };
     private readonly Dictionary<string, TextBox> _keys = [];
-    private readonly ComboBox _judgeProvider = ProviderCombo();
+    // Hosted providers only: there's no base-URL box for the judge. A custom or local judge can still be set in settings.json.
+    private readonly ComboBox _judgeProvider = Combo([ProviderPresets.Gemini.Id, ProviderPresets.Groq.Id]);
     private readonly TextBox _judgeModel = new() { Width = 260 };
     private readonly Label _testResult = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
     private readonly Label _providerNotes = new() { AutoSize = true, MaximumSize = new Size(680, 0), ForeColor = SystemColors.GrayText };
@@ -218,7 +219,7 @@ internal sealed class SettingsForm : Form
         _fallbackModel.Text = _s.Fallback.Model;
         _fallbackUrl.Text = _s.Fallback.BaseUrl ?? "";
         foreach (var (id, box) in _keys) box.PlaceholderText = _secrets.Get(id) is null ? "not set" : "saved (type to replace)";
-        _judgeProvider.SelectedItem = ProviderPresets.Get(_s.Judge.Provider).Id;
+        _judgeProvider.SelectedItem = _s.Judge.Provider is "gemini" or "groq" ? _s.Judge.Provider : ProviderPresets.Gemini.Id;
         _judgeModel.Text = _s.Judge.Model;
         UpdateUrlBoxes();
 
@@ -265,8 +266,6 @@ internal sealed class SettingsForm : Form
         {
             Provider = (string)_judgeProvider.SelectedItem!,
             Model = _judgeModel.Text.Trim(),
-            // A custom or local judge keeps the base URL from settings.json; there's no box for it.
-            BaseUrl = _s.Judge.BaseUrl,
         };
         _s.Hotkeys = new HotkeySettings { Optimize = _hkOptimize.Text, OptimizeSelection = _hkSelection.Text, Voice = _hkVoice.Text };
         _s.Voice = new VoiceSettings

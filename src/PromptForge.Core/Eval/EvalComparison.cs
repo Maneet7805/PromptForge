@@ -9,8 +9,9 @@ public sealed record CaseRun(string Id, bool Passed);
 
 /// <summary>
 /// Compares two quality-check runs case by case. Single runs at temperature above zero vary, so
-/// a case counts as better or worse only when its pass rate moved by at least half (with three
-/// runs: from 0 or 1 passes to 2 or 3, or the reverse). Smaller moves are reported as noise.
+/// a case counts as better or worse only when it ran at least twice in both and its pass rate
+/// moved by at least half (with three runs: from 0 or 1 passes to 2 or 3, or the reverse).
+/// Smaller moves, and any change in a case that ran once, are reported as noise.
 /// </summary>
 public static class EvalComparison
 {
@@ -37,7 +38,8 @@ public static class EvalComparison
         var rows = a.Keys.Intersect(b.Keys).Select(id =>
         {
             var delta = Rate(b[id]) - Rate(a[id]);
-            var change = delta >= RealChange ? "better" : delta <= -RealChange ? "worse" : delta == 0 ? "same" : "noise";
+            var repeated = a[id].Runs > 1 && b[id].Runs > 1;
+            var change = delta == 0 ? "same" : !repeated ? "noise" : delta >= RealChange ? "better" : delta <= -RealChange ? "worse" : "noise";
             return (Id: id, Before: a[id], After: b[id], Delta: delta, Change: change);
         }).OrderBy(r => r.Change switch { "worse" => 0, "better" => 1, "noise" => 2, _ => 3 }).ThenBy(r => r.Delta).ThenBy(r => r.Id, StringComparer.Ordinal).ToList();
 
@@ -52,18 +54,18 @@ public static class EvalComparison
         sb.AppendLine("| --- | --- | --- |");
         sb.AppendLine(inv, $"| Runs passed | {before.Count(r => r.Passed)}/{before.Count} ({Overall(before):0}%) | {after.Count(r => r.Passed)}/{after.Count} ({Overall(after):0}%) |");
         sb.AppendLine();
-        sb.AppendLine(inv, $"Cases compared: {rows.Count}. Better: {rows.Count(r => r.Change == "better")}. Worse: {rows.Count(r => r.Change == "worse")}. Noise (moved less than half the runs): {rows.Count(r => r.Change == "noise")}.");
+        sb.AppendLine(inv, $"Cases compared: {rows.Count}. Better: {rows.Count(r => r.Change == "better")}. Worse: {rows.Count(r => r.Change == "worse")}. Noise: {rows.Count(r => r.Change == "noise")}.");
         var onlyBefore = a.Keys.Except(b.Keys).Order(StringComparer.Ordinal).ToList();
         var onlyAfter = b.Keys.Except(a.Keys).Order(StringComparer.Ordinal).ToList();
         if (onlyBefore.Count > 0) sb.AppendLine(inv, $"\nOnly in before: {string.Join(", ", onlyBefore)}");
         if (onlyAfter.Count > 0) sb.AppendLine(inv, $"\nOnly in after: {string.Join(", ", onlyAfter)}");
         if (rows.Any(r => r.Before.Runs < 2 || r.After.Runs < 2))
-            sb.AppendLine("\nSome cases ran only once, so their changes can't be told apart from noise. Run with repeats.");
+            sb.AppendLine("\nSome cases ran only once, so any change in them is counted as noise. Run with repeats.");
         sb.AppendLine();
         sb.AppendLine("| Case | Before | After | Change |");
         sb.AppendLine("| --- | --- | --- | --- |");
         foreach (var r in rows.Where(r => r.Change != "same"))
-            sb.AppendLine(inv, $"| {r.Id} | {Fmt(r.Before)} | {Fmt(r.After)} | {r.Change} |");
+            sb.AppendLine(inv, $"| {r.Id.Replace("|", "\\|")} | {Fmt(r.Before)} | {Fmt(r.After)} | {r.Change} |");
         sb.AppendLine(inv, $"\n{rows.Count(r => r.Change == "same")} cases had the same pass rate in both runs.");
         return sb.ToString();
     }

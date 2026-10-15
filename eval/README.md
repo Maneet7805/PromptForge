@@ -39,7 +39,7 @@ This is how a change to the system prompt gets accepted or rejected.
    & "$env:LOCALAPPDATA\Programs\PromptForge\PromptForge.exe" --eval-compare eval\results\v1.0.0\results.json eval\results\main\results.json eval\results\compare.md
    ```
 
-`compare.md` lists each case whose pass rate changed. A case is **better** or **worse** only when its pass rate moved by at least half (with 3 runs: 0–1 passes to 2–3, or the reverse); smaller moves are **noise**. Keep a rule that makes cases better without making any worse, and look at any "worse" case before merging.
+`compare.md` lists each case whose pass rate changed. A case is **better** or **worse** only when its pass rate moved by at least half (with 3 runs: 0–1 passes to 2–3, or the reverse); smaller moves, and any change in a case that ran only once, are **noise**. Keep a rule that makes cases better without making any worse, and look at any "worse" case before merging.
 
 Only the system prompt changes between the two runs; the rest of the pipeline (masking, repair pass, checks) is the current build's.
 

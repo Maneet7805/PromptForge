@@ -60,9 +60,18 @@ public sealed record EvalCaseResult
 /// </summary>
 public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient client)
 {
-    public static IReadOnlyList<EvalCase> LoadCases(string path) =>
-        JsonSerializer.Deserialize<List<EvalCase>>(File.ReadAllText(path), SettingsStore.JsonOptions)
-        ?? throw new InvalidDataException("No eval cases found.");
+    /// <summary>Runs per case when the caller doesn't say: enough to tell a real change from run-to-run noise.</summary>
+    public const int DefaultRepeat = 3;
+
+    public static IReadOnlyList<EvalCase> LoadCases(string path)
+    {
+        var cases = JsonSerializer.Deserialize<List<EvalCase>>(File.ReadAllText(path), SettingsStore.JsonOptions)
+            ?? throw new InvalidDataException("No eval cases found.");
+        // Results are grouped by id, so two cases with one id would be reported as one.
+        var duplicate = cases.GroupBy(c => c.Id).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null) throw new InvalidDataException($"Two eval cases have the id \"{duplicate.Key}\".");
+        return cases;
+    }
 
     public async Task<IReadOnlyList<EvalCaseResult>> RunAsync(
         IReadOnlyList<EvalCase> cases,
@@ -71,7 +80,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         TimeSpan pause,
         IProgress<string>? progress,
         CancellationToken ct,
-        int repeat = 1,
+        int repeat = DefaultRepeat,
         OptimizerOptions? options = null)
     {
         options ??= new OptimizerOptions();
@@ -251,7 +260,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         sb.AppendLine("| Case | Category | Passed | Most common problem |");
         sb.AppendLine("| --- | --- | --- | --- |");
         foreach (var c in byCase.OrderBy(c => c.Rate).ThenBy(c => c.Id, StringComparer.Ordinal))
-            sb.AppendLine(inv, $"| {c.Id} | {c.Category} | {c.Passed}/{c.Runs} | {Escape(c.TopProblem ?? "")} |");
+            sb.AppendLine(inv, $"| {Escape(c.Id)} | {Escape(c.Category)} | {c.Passed}/{c.Runs} | {Escape(c.TopProblem ?? "")} |");
 
         var repeated = ok.GroupBy(r => r.Case.Id).Where(g => g.Count() > 1).ToList();
         if (repeated.Count > 0)
@@ -278,7 +287,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             var res = r.Result;
             var problems = r.Error ?? string.Join("; ", r.Failures);
             sb.AppendLine(inv,
-                $"| {r.Case.Id}{(r.Run > 1 ? $" #{r.Run}" : "")} | {r.Case.Category} | {(r.Passed ? "pass" : "FAIL")} | {res?.TaskType} | {res?.Verdict} | {(res is null ? "" : (res.Prompt.Length / (double)Math.Max(1, r.Case.Draft.Length)).ToString("0.0", inv))} | {res?.Elapsed.TotalMilliseconds:0} | {Escape(problems)} |");
+                $"| {Escape(r.Case.Id)}{(r.Run > 1 ? $" #{r.Run}" : "")} | {Escape(r.Case.Category)} | {(r.Passed ? "pass" : "FAIL")} | {res?.TaskType} | {res?.Verdict} | {(res is null ? "" : (res.Prompt.Length / (double)Math.Max(1, r.Case.Draft.Length)).ToString("0.0", inv))} | {res?.Elapsed.TotalMilliseconds:0} | {Escape(problems)} |");
         }
 
         sb.AppendLine();
