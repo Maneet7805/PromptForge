@@ -1,0 +1,44 @@
+name: Bad rewrite
+description: PromptForge changed what you meant, dropped something, or invented something
+labels: [prompt-quality]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Real drafts are the best test cases. Remove anything private before posting: this repository is public.
+  - type: textarea
+    id: original
+    attributes:
+      label: Your original draft
+      description: Exactly what you typed, before PromptForge.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: rewrite
+    attributes:
+      label: PromptForge's rewrite
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: kind
+    attributes:
+      label: What went wrong?
+      options:
+        - label: Dropped something I asked for (a request, rule, condition or item)
+        - label: Changed what kind of request it was (question became instruction, "fix" became "explain", ongoing became one-off…)
+        - label: Invented details I didn't give
+        - label: Written as the AI's reply instead of my request
+        - label: Rewrote a prompt that was already fine
+        - label: Something else
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should it have done?
+      placeholder: Kept the request to create GitHub issues…
+  - type: input
+    id: details
+    attributes:
+      label: Version, mode and model
+      placeholder: 1.1.0, Standard, openai/gpt-oss-120b
