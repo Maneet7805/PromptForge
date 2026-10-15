@@ -195,6 +195,42 @@ public class SettingsTests
         Assert.Equal("https://example.com/v1/", endpoints[1].BaseUrl);
     }
 
+    [Fact]
+    public void Judge_uses_its_own_provider_when_the_key_is_saved()
+    {
+        var secrets = new MemorySecrets();
+        secrets.Set("groq", "gsk_test");
+        var settings = new AppSettings();
+        var optimiser = EndpointResolver.Resolve(settings, secrets);
+
+        var (fallbackJudge, independent) = EndpointResolver.ResolveJudge(settings, secrets, optimiser);
+        Assert.Equal("openai/gpt-oss-20b", fallbackJudge.Model);
+        Assert.False(independent);
+
+        secrets.Set("gemini", "g_test");
+        var (judge, independentNow) = EndpointResolver.ResolveJudge(settings, secrets, optimiser);
+        Assert.Equal(ProviderPresets.Gemini.DefaultModel, judge.Model);
+        Assert.True(independentNow);
+    }
+
+    [Fact]
+    public void Judge_on_the_optimisers_provider_is_not_independent()
+    {
+        var secrets = new MemorySecrets();
+        secrets.Set("groq", "gsk_test");
+        var settings = new AppSettings { Judge = new EndpointSettings { Provider = "groq", Model = "qwen/qwen3-32b" } };
+        var (judge, independent) = EndpointResolver.ResolveJudge(settings, secrets, EndpointResolver.Resolve(settings, secrets));
+        Assert.Equal("qwen/qwen3-32b", judge.Model);
+        Assert.False(independent);
+    }
+
+    [Fact]
+    public void Settings_saved_before_the_judge_existed_get_the_default_judge()
+    {
+        var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>("""{"version":1}""", SettingsStore.JsonOptions)!;
+        Assert.Equal("gemini", settings.Judge.Provider);
+    }
+
     internal sealed class MemorySecrets : ISecretStore
     {
         private readonly Dictionary<string, string> _values = [];
@@ -250,6 +286,19 @@ public class EvalCasesFileTests
         Assert.Equal(cases.Count, cases.Select(c => c.Id).Distinct().Count());
         Assert.Contains(cases, c => c.Mode == OptimizeMode.Detailed);
         Assert.Contains(cases, c => c.Repeat == 3);
+        Assert.Contains(cases, c => c.WrittenIn is not null);
+    }
+
+    [Fact]
+    public void Shipped_v1_0_0_system_prompt_is_a_full_prompt()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "eval", "prompts", "v1.0.0.txt"))) dir = Path.GetDirectoryName(dir);
+        Assert.NotNull(dir);
+        var text = File.ReadAllText(Path.Combine(dir!, "eval", "prompts", "v1.0.0.txt"));
+        Assert.StartsWith("You are PromptForge", text);
+        Assert.Contains("Respond with only one JSON object", text);
+        Assert.NotEqual(SystemPrompt.Text, text.TrimEnd('\n'));
     }
 }
 
@@ -274,32 +323,6 @@ public class EvalGradingNumberTests
     }
 
     [Fact]
-    public void Flags_a_rewrite_written_in_the_assistants_voice()
-    {
-        var c = new EvalCase { Id = "t", Category = "voice", Draft = "fix the issues you found" };
-        var result = new OptimizeResult
-        {
-            Original = c.Draft,
-            Prompt = "Please list the specific issues you want fixed. Once I have this information, I can address all the listed issues.",
-            TaskType = TaskType.Coding, Verdict = Verdict.Rewritten, Model = "m",
-        };
-        Assert.Contains(EvalRunner.Grade(c, result), f => f.Contains("AI's reply"));
-    }
-
-    [Fact]
-    public void A_normal_request_is_not_flagged_as_assistant_voice()
-    {
-        var c = new EvalCase { Id = "t", Category = "voice", Draft = "fix the bugs in app.py" };
-        var result = new OptimizeResult
-        {
-            Original = c.Draft,
-            Prompt = "Fix the bugs in app.py. If you need the error message, ask me for it before guessing.",
-            TaskType = TaskType.Debugging, Verdict = Verdict.Rewritten, Model = "m",
-        };
-        Assert.DoesNotContain(EvalRunner.Grade(c, result), f => f.Contains("AI's reply"));
-    }
-
-    [Fact]
     public void Report_counts_dropped_requirements_from_the_judge()
     {
         var c = new EvalCase { Id = "t", Category = "stated-rule", Draft = "decide which issues to build, only ones that work in every situation" };
@@ -318,6 +341,102 @@ public class EvalGradingNumberTests
         var judge = new JudgeVerdict(false, false, "", true, true, "question became instruction", ChangedIntent: true);
         var report = EvalRunner.BuildReport([new EvalCaseResult { Case = c, Result = result, Judge = judge }], "m");
         Assert.Contains("| Judge: changed the kind of request | 1/1 |", report);
+    }
+
+    [Fact]
+    public void Assistant_voice_is_left_to_the_judge_not_a_phrase_list()
+    {
+        var c = new EvalCase { Id = "t", Category = "voice", Draft = "i have turned on the memory" };
+        var result = new OptimizeResult
+        {
+            Original = c.Draft,
+            Prompt = "I have turned on the memory. Please let me know what you would like me to do with this information.",
+            TaskType = TaskType.General, Verdict = Verdict.Rewritten, Model = "m",
+        };
+        Assert.Empty(EvalRunner.Grade(c, result));
+        var judge = new JudgeVerdict(false, false, "", false, true, "reply voice", WrittenAsReply: true, AddedRequests: true, AddedExamples: "asks the user what to do");
+        var report = EvalRunner.BuildReport([new EvalCaseResult { Case = c, Result = result, Judge = judge }], "m");
+        Assert.Contains("| Judge: written as the AI's reply | 1/1 |", report);
+        Assert.Contains("| Judge: added requests | 1/1 |", report);
+        Assert.Contains("added=True asks the user what to do", report);
+    }
+
+    [Fact]
+    public void Report_shows_pass_rate_per_case_lowest_first()
+    {
+        var flaky = new EvalCase { Id = "flaky", Category = "intent", Draft = "d" };
+        var solid = new EvalCase { Id = "solid", Category = "simple", Draft = "d" };
+        var ok = new OptimizeResult { Original = "d", Prompt = "d", TaskType = TaskType.General, Verdict = Verdict.LightEdit, Model = "m" };
+        EvalCaseResult R(EvalCase c, int run, params string[] failures) => new() { Case = c, Run = run, Result = ok, Failures = [.. failures] };
+        var results = new[]
+        {
+            R(solid, 1), R(solid, 2), R(solid, 3),
+            R(flaky, 1, "judge: invented details (React)"), R(flaky, 2), R(flaky, 3, "judge: invented details (Vue)"),
+        };
+        var report = EvalRunner.BuildReport(results, new EvalRunInfo("m", "judge-model (gemini)", JudgeIndependent: true, InstructionsLabel: "v1.0.0.txt"));
+
+        Assert.Contains("| Cases / runs | 2 / 6 |", report);
+        Assert.Contains("| Cases with mixed results | 1 |", report);
+        Assert.Contains("| flaky | intent | 1/3 | judge: invented details |", report);
+        Assert.True(report.IndexOf("| flaky |", StringComparison.Ordinal) < report.IndexOf("| solid |", StringComparison.Ordinal));
+        Assert.Contains("Judge: judge-model (gemini) (independent provider)", report);
+        Assert.Contains("System prompt: v1.0.0.txt", report);
+    }
+
+    [Theory]
+    [InlineData(1, 1, 1)]
+    [InlineData(1, 3, 3)]
+    [InlineData(5, 3, 5)]
+    [InlineData(0, 0, 1)]
+    public void Each_case_runs_at_least_its_own_repeat_count(int caseRepeat, int runRepeat, int expected) =>
+        Assert.Equal(expected, EvalRunner.RunsFor(new EvalCase { Id = "t", Category = "c", Draft = "d", Repeat = caseRepeat }, runRepeat));
+
+    [Fact]
+    public async Task Runner_repeats_cases_and_uses_the_given_system_prompt()
+    {
+        var client = new PromptOptimizerTests.FakeClient(_ =>
+            System.Text.Json.JsonSerializer.Serialize(new { task_type = "general", verdict = "light_edit", prompt = "What is DNS?", changes = Array.Empty<string>(), questions = Array.Empty<string>() }));
+        var endpoint = new LlmEndpoint(ProviderPresets.Groq, "https://x", "m", "k");
+        var runner = new EvalRunner(new PromptOptimizer(client, (_, _) => Task.CompletedTask), client);
+        var results = await runner.RunAsync([new EvalCase { Id = "dns", Category = "simple", Draft = "what is dns", WrittenIn = "a web page" }], [endpoint], null,
+            TimeSpan.Zero, null, CancellationToken.None, repeat: 3, options: new OptimizerOptions { Instructions = "old prompt" });
+
+        Assert.Equal([1, 2, 3], results.Select(r => r.Run));
+        Assert.All(client.Calls, c => Assert.Equal("old prompt", c.Messages[0].Content));
+        Assert.All(client.Calls, c => Assert.Contains("written_in: a web page", c.Messages[1].Content));
+    }
+
+    [Fact]
+    public void Comparison_separates_real_changes_from_noise()
+    {
+        static IEnumerable<CaseRun> Runs(string id, int passed, int runs) => Enumerable.Range(0, runs).Select(i => new CaseRun(id, i < passed));
+        var before = Runs("fixed", 0, 3).Concat(Runs("broke", 3, 3)).Concat(Runs("wobble", 1, 3)).Concat(Runs("steady", 3, 3)).Concat(Runs("gone", 1, 1)).ToList();
+        var after = Runs("fixed", 3, 3).Concat(Runs("broke", 1, 3)).Concat(Runs("wobble", 2, 3)).Concat(Runs("steady", 3, 3)).Concat(Runs("new", 1, 1)).ToList();
+        var report = EvalComparison.Build(before, after, "v1.0.0", "main");
+
+        Assert.Contains("| fixed | 0/3 | 3/3 | better |", report);
+        Assert.Contains("| broke | 3/3 | 1/3 | worse |", report);
+        Assert.Contains("| wobble | 1/3 | 2/3 | noise |", report);
+        Assert.DoesNotContain("| steady |", report);
+        Assert.Contains("Better: 1. Worse: 1. Noise (moved less than half the runs): 1.", report);
+        Assert.Contains("Only in before: gone", report);
+        Assert.Contains("Only in after: new", report);
+        Assert.True(report.IndexOf("| broke |", StringComparison.Ordinal) < report.IndexOf("| fixed |", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Comparison_reads_results_json()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, """[{"Id":"a","Category":"c","Run":1,"Passed":true,"Error":null},{"Id":"a","Category":"c","Run":2,"Passed":false,"Error":"x"}]""");
+            Assert.Equal([new CaseRun("a", true), new CaseRun("a", false)], EvalComparison.LoadRuns(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]

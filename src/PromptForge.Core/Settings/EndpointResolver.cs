@@ -41,6 +41,23 @@ public static class EndpointResolver
         return list;
     }
 
+    /// <summary>
+    /// The quality-check judge: the configured judge model when its key is saved, otherwise the
+    /// optimiser's fallback (or main) model. Independent is false when the judge shares a provider
+    /// with the optimiser, because then it grades its own model family.
+    /// </summary>
+    public static (LlmEndpoint Endpoint, bool Independent) ResolveJudge(AppSettings settings, ISecretStore secrets, IReadOnlyList<LlmEndpoint> optimiser)
+    {
+        if (optimiser.Count == 0) throw new ArgumentException("No optimiser endpoint.", nameof(optimiser));
+        var cfg = settings.Judge;
+        if (cfg is { Enabled: true } && !string.IsNullOrWhiteSpace(cfg.Model) &&
+            Build(cfg.Provider, cfg.Model, cfg.BaseUrl, secrets, out _) is { } judge)
+        {
+            return (judge, !optimiser.Any(e => e.BaseUrl.TrimEnd('/').Equals(judge.BaseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)));
+        }
+        return (optimiser.Count > 1 ? optimiser[1] : optimiser[0], false);
+    }
+
     public static LlmEndpoint? ResolveVoice(AppSettings settings, ISecretStore secrets) =>
         Build(settings.Voice.Provider, settings.Voice.Model, settings.Voice.BaseUrl, secrets, out _);
 

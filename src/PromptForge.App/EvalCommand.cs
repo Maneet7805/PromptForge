@@ -1,31 +1,74 @@
 using System.Text.Json;
 using PromptForge.Core.Eval;
+using PromptForge.Core.Optimization;
 using PromptForge.Core.Settings;
 
 namespace PromptForge.App;
 
 /// <summary>
-/// Runs the optimiser over a test set with the saved settings and API key, writing report.md and
-/// results.json. Available as "PromptForge.exe --eval cases.json outDir [--judge] [--pause-seconds N]"
-/// and from the tray menu (Developer → Run quality check). The key never leaves this PC.
+/// Runs the optimiser over a test set with the saved settings and API keys, writing report.md and
+/// results.json. Available as
+/// "PromptForge.exe --eval cases.json outDir [--judge] [--repeat N] [--system-prompt file] [--pause-seconds N]"
+/// and from the tray menu (Developer → Run quality check). Keys never leave this PC.
+/// "PromptForge.exe --eval-compare before\results.json after\results.json compare.md" compares two runs.
 /// </summary>
 internal static class EvalCommand
 {
+    public const int DefaultRepeat = 3;
+
+    private const string Usage =
+        "Usage:\nPromptForge.exe --eval <cases.json> <output folder> [--judge] [--repeat N] [--system-prompt <file>] [--pause-seconds N]\n" +
+        "PromptForge.exe --eval-compare <before results.json> <after results.json> <output .md>";
+
     public static int Run(string[] args)
     {
         if (args.Length < 2)
         {
-            MessageBox.Show("Usage: PromptForge.exe --eval <cases.json> <output folder> [--judge] [--pause-seconds N]", "PromptForge eval");
+            MessageBox.Show(Usage, "PromptForge eval");
             return 2;
         }
-        var pauseIndex = Array.IndexOf(args, "--pause-seconds");
-        var pause = TimeSpan.FromSeconds(pauseIndex >= 0 && pauseIndex + 1 < args.Length && double.TryParse(args[pauseIndex + 1], out var p) ? p : 8);
+        var pause = TimeSpan.FromSeconds(Option(args, "--pause-seconds") is { } p && double.TryParse(p, out var s) ? s : 8);
+        var repeat = Option(args, "--repeat") is { } r && int.TryParse(r, out var n) && n > 0 ? n : DefaultRepeat;
+        var instructions = Option(args, "--system-prompt");
         using var services = new AppServices();
-        return Task.Run(() => RunAsync(services, args[0], args[1], args.Contains("--judge"), pause)).GetAwaiter().GetResult() ? 0 : 1;
+        return Task.Run(() => RunAsync(services, args[0], args[1], args.Contains("--judge"), pause, repeat, instructions)).GetAwaiter().GetResult() ? 0 : 1;
     }
 
+    public static int Compare(string[] args)
+    {
+        if (args.Length < 3)
+        {
+            MessageBox.Show(Usage, "PromptForge eval");
+            return 2;
+        }
+        try
+        {
+            var report = EvalComparison.Build(EvalComparison.LoadRuns(args[0]), EvalComparison.LoadRuns(args[1]), args[0], args[1]);
+            File.WriteAllText(args[2], report);
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or KeyNotFoundException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            MessageBox.Show("Couldn't compare the runs: " + ex.Message, "PromptForge eval");
+            return 1;
+        }
+    }
+
+    private static string? Option(string[] args, string name)
+    {
+        var i = Array.IndexOf(args, name);
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+    }
+
+    /// <summary>
+    /// The system prompt from a file, e.g. eval\prompts\v1.0.0.txt, to measure it against the built-in one.
+    /// Line endings are normalised so a file saved on Windows matches the built-in text byte for byte.
+    /// </summary>
+    public static string LoadInstructions(string path) => File.ReadAllText(path).Replace("\r\n", "\n").TrimEnd('\n');
+
     /// <summary>Returns true on success. Progress and the final summary go to progress.txt in the output folder.</summary>
-    public static async Task<bool> RunAsync(AppServices services, string casesPath, string outDir, bool judge, TimeSpan pause)
+    public static async Task<bool> RunAsync(AppServices services, string casesPath, string outDir, bool judge, TimeSpan pause,
+        int repeat = DefaultRepeat, string? instructionsPath = null)
     {
         Directory.CreateDirectory(outDir);
         var progressFile = Path.Combine(outDir, "progress.txt");
@@ -34,12 +77,15 @@ internal static class EvalCommand
         {
             var cases = EvalRunner.LoadCases(casesPath);
             var endpoints = EndpointResolver.Resolve(services.Settings, services.Secrets);
-            var judgeEndpoint = judge ? endpoints.Count > 1 ? endpoints[1] : endpoints[0] : null;
+            var (judgeEndpoint, independent) = EndpointResolver.ResolveJudge(services.Settings, services.Secrets, endpoints);
+            var options = instructionsPath is null ? new OptimizerOptions() : new OptimizerOptions { Instructions = LoadInstructions(instructionsPath) };
+            var info = new EvalRunInfo(endpoints[0].Label, judge ? judgeEndpoint.Label : null, independent,
+                instructionsPath is null ? null : Path.GetFileName(instructionsPath));
             var runner = new EvalRunner(services.Optimizer, services.Client);
-            Log.Info($"eval started cases={cases.Count} judge={judge}");
-            var results = await runner.RunAsync(cases, endpoints, judgeEndpoint, pause, new Progress<string>(Progress), CancellationToken.None);
+            Log.Info($"eval started cases={cases.Count} repeat={repeat} judge={(judge ? judgeEndpoint.Label : "off")} independent={independent} customPrompt={instructionsPath is not null}");
+            var results = await runner.RunAsync(cases, endpoints, judge ? judgeEndpoint : null, pause, new Progress<string>(Progress), CancellationToken.None, repeat, options);
 
-            await File.WriteAllTextAsync(Path.Combine(outDir, "report.md"), EvalRunner.BuildReport(results, endpoints[0].Label));
+            await File.WriteAllTextAsync(Path.Combine(outDir, "report.md"), EvalRunner.BuildReport(results, info));
             await File.WriteAllTextAsync(Path.Combine(outDir, "results.json"), JsonSerializer.Serialize(results.Select(r => new
             {
                 r.Case.Id,
@@ -60,7 +106,7 @@ internal static class EvalCommand
                 r.Result?.CompletionTokens,
                 r.Judge,
             }), new JsonSerializerOptions { WriteIndented = true }));
-            var summary = $"done: {results.Count(r => r.Passed)}/{results.Count} passed";
+            var summary = $"done: {results.Count(r => r.Passed)}/{results.Count} runs passed";
             Progress(summary);
             Log.Info("eval " + summary);
             return true;

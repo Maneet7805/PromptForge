@@ -49,6 +49,12 @@ public sealed class AppSettings
     public int Version { get; set; } = 1;
     public EndpointSettings Primary { get; set; } = new();
     public EndpointSettings Fallback { get; set; } = new() { Model = ProviderPresets.Groq.DefaultFallbackModel };
+
+    /// <summary>
+    /// The model that grades rewrites in the quality check. A different provider from the optimiser,
+    /// so the judge isn't grading its own model family. Uses the API key saved for that provider.
+    /// </summary>
+    public EndpointSettings Judge { get; set; } = new() { Provider = ProviderPresets.Gemini.Id, Model = ProviderPresets.Gemini.DefaultModel };
     public OptimizeMode DefaultMode { get; set; } = OptimizeMode.Standard;
 
     /// <summary>When false, accepted results replace the text immediately (still never sends it).</summary>

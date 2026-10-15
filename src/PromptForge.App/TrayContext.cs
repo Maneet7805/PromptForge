@@ -154,7 +154,7 @@ internal sealed class TrayContext : ApplicationContext
         };
         if (dialog.ShowDialog() != DialogResult.OK) return;
         var judge = MessageBox.Show(
-            "Also grade each rewrite with a second model (checks for invented details and answering instead of rewriting)?\n\nThis roughly doubles the free-tier usage of the run.",
+            $"Also grade each rewrite with the judge model (Settings → Data)? It checks for invented details, dropped requirements, changed intent, added requests and replies written in the AI's voice.\n\nEach case runs {EvalCommand.DefaultRepeat} times so results can be told apart from noise. The judge doubles the number of requests.",
             "PromptForge quality check", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         var outDir = Path.Combine(Path.GetDirectoryName(dialog.FileName)!, "results", DateTime.Now.ToString("yyyyMMdd-HHmm"));
         _evalRunning = true;

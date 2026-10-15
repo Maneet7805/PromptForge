@@ -126,22 +126,21 @@ The rewriting rules:
 
 ## Quality
 
-A test set of 68 prompts runs with code-graded checks. It covers simple, vague, coding, debugging, research, writing, study, planning, image-generation, template placeholders, references to material that isn't included, casually stated rules, questions and requests that must keep their type, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
+A test set of 76 prompts runs with code-graded checks, three times each by default, so a change shows up as a per-case pass rate rather than one lucky or unlucky run. It covers simple, vague, coding, debugging, research, writing, study, planning, image-generation, template placeholders, references to material that isn't included, casually stated rules, questions, answers, statements and standing instructions that must keep their type, strict constraints, already-good, long, prompt-injection and non-English drafts. The checks look for:
 - dropped details (including the user's own `[slots]` and `{{slots}}`) and leftover markers
 - inserted placeholders and filler phrases
-- rewrites written in the AI's voice instead of the user's
 - invented numbers and over-expansion
 - rewriting prompts that were already good
 - missing questions on vague drafts
 
-With `--judge`, a second model also checks for answering instead of rewriting, invented details, dropped requirements (a rule or condition the user stated that the rewrite left out), and changed intent (a question turned into an instruction, "fix" turned into "explain", or pasted context turned into the task).
+With `--judge`, a second model also checks for answering instead of rewriting, invented details, dropped requirements (a rule or condition the user stated that the rewrite left out), changed intent (a question turned into an instruction, "fix" turned into "explain", a standing instruction turned into a one-off task, or pasted context turned into the task), rewrites written as the AI's reply, and added requests (deliverables, formats or "ask me first" steps the draft didn't ask for). Set the judge in **Settings → Data** to a different provider from the main model, so it isn't grading its own model family.
 
 | Version | Passed all checks | Median / p95 latency |
 | --- | --- | --- |
 | 0.2 | 48/53 (91%) | 830 ms / 1.5 s |
 | 0.3 – 1.0 | 50/53 (94%) | 914 ms / 1.7 s |
 
-The tests used `openai/gpt-oss-120b` on Groq's free tier. Run it yourself: **Settings → Data → Run quality check** and pick `eval/cases.json`.
+The tests used `openai/gpt-oss-120b` on Groq's free tier, with one run per case; later results use repeats. Run it yourself: **Settings → Data → Run quality check** and pick `eval/cases.json`. To compare two versions of the rewriting rules, see [eval/README.md](eval/README.md).
 
 ## Models and free-tier limits
 
