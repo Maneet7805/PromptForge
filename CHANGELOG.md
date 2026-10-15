@@ -12,6 +12,12 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - `--eval-compare before\results.json after\results.json compare.md` compares two runs case by case and separates real changes from run-to-run noise.
 - Eval cases can carry the app hint (`writtenIn`), and 8 new cases cover the rewrites reported in #16, #17, #18 and #25–#28.
 
+### Changed
+- Rewrites keep statements, answers to an earlier message, and standing instructions ("whenever…") as what they are, and "set it up" stays doing it rather than becoming a plan.
+- Rewrites no longer add "if you need more details, ask me first" steps, extra deliverables or answer formats the draft didn't ask for. Missing details are asked about in the review window instead. The debugging example in the system prompt taught the opposite and was changed.
+- The app a draft was typed in is no longer treated as what the draft is about.
+- Every separate part of a multi-part draft is kept, including a request on the last line.
+
 ### Removed
 - The phrase list that flagged rewrites written in the AI's voice. It only caught wordings we had thought of; the judge checks this now.
 
