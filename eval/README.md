@@ -18,6 +18,7 @@ From PowerShell, in the repo folder, with PromptForge running or not:
 | `--repeat N` | Runs per case (default 3). Cases with their own higher `repeat` keep it. |
 | `--system-prompt <file>` | Use these rewriting rules instead of the built-in ones. |
 | `--pause-seconds N` | Wait between requests (default 8), to stay inside free-tier rate limits. |
+| `--include-held-out` | Also run the held-out cases. Only for the final measurement of a change. |
 
 The command returns when it's done; `progress.txt` in the output folder shows where it is. A full run with the judge is roughly 230 rewrites plus 230 judge calls, and takes about an hour.
 
@@ -63,3 +64,9 @@ Every bad rewrite reported on GitHub becomes a case before the rules change. Use
 | `expectMinimalChange` | The draft is already good. |
 | `expectQuestions` | The draft is vague, so the review window should ask questions. |
 | `repeat` | Minimum runs for this case. |
+| `expect` | How deep the ideal rewrite goes: `Keep` (asks for nothing new: fix the wording only), `Clarify`, `SpellOut` (turn a stated goal into the steps or checks it requires), `Propose` (suggest a structure for an open-ended request) or `Write` (the draft is a brief for a prompt, #43). See `docs/design/rewrite-intent.md`. A `Keep` case fails if it's rewritten or grows past 1.6x. |
+| `mustCover` | What the ideal rewrite must cover, in plain words. Graded by the judge (#34), not by code. |
+| `heldOut` | Left out of runs unless you pass `--include-held-out`. These cases are for the final measurement of a rules change, so the rules can't be tuned to them. Don't look at their results while changing rules. |
+| `source` | Where the case comes from: an issue, the user's own draft, or a pattern found in #32. |
+
+`cases-write.json` holds briefs for write mode (#43): drafts that ask for a prompt to be written. Run them once write mode exists.

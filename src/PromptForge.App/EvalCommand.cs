@@ -17,7 +17,7 @@ internal static class EvalCommand
     public const int DefaultRepeat = EvalRunner.DefaultRepeat;
 
     private const string Usage =
-        "Usage:\nPromptForge.exe --eval <cases.json> <output folder> [--judge] [--repeat N] [--system-prompt <file>] [--pause-seconds N]\n" +
+        "Usage:\nPromptForge.exe --eval <cases.json> <output folder> [--judge] [--repeat N] [--system-prompt <file>] [--pause-seconds N] [--include-held-out]\n" +
         "PromptForge.exe --eval-compare <before results.json> <after results.json> <output .md>";
 
     public static int Run(string[] args)
@@ -31,7 +31,7 @@ internal static class EvalCommand
         var repeat = Option(args, "--repeat") is { } r && int.TryParse(r, out var n) && n > 0 ? n : DefaultRepeat;
         var instructions = Option(args, "--system-prompt");
         using var services = new AppServices();
-        return Task.Run(() => RunAsync(services, args[0], args[1], args.Contains("--judge"), pause, repeat, instructions)).GetAwaiter().GetResult() ? 0 : 1;
+        return Task.Run(() => RunAsync(services, args[0], args[1], args.Contains("--judge"), pause, repeat, instructions, args.Contains("--include-held-out"))).GetAwaiter().GetResult() ? 0 : 1;
     }
 
     public static int Compare(string[] args)
@@ -75,19 +75,20 @@ internal static class EvalCommand
 
     /// <summary>Returns true on success. Progress and the final summary go to progress.txt in the output folder.</summary>
     public static async Task<bool> RunAsync(AppServices services, string casesPath, string outDir, bool judge, TimeSpan pause,
-        int repeat = DefaultRepeat, string? instructionsPath = null)
+        int repeat = DefaultRepeat, string? instructionsPath = null, bool includeHeldOut = false)
     {
         Directory.CreateDirectory(outDir);
         var progressFile = Path.Combine(outDir, "progress.txt");
         void Progress(string msg) => File.WriteAllText(progressFile, $"{DateTime.Now:HH:mm:ss} {msg}");
         try
         {
-            var cases = EvalRunner.LoadCases(casesPath);
+            var allCases = EvalRunner.LoadCases(casesPath);
+            var cases = EvalRunner.SelectCases(allCases, includeHeldOut);
             var endpoints = EndpointResolver.Resolve(services.Settings, services.Secrets);
             var (judgeEndpoint, independent) = EndpointResolver.ResolveJudge(services.Settings, services.Secrets, endpoints);
             var options = instructionsPath is null ? new OptimizerOptions() : new OptimizerOptions { Instructions = LoadInstructions(instructionsPath) };
             var info = new EvalRunInfo(endpoints[0].Label, judge ? judgeEndpoint.Label : null, independent,
-                instructionsPath is null ? null : Path.GetFileName(instructionsPath));
+                instructionsPath is null ? null : Path.GetFileName(instructionsPath), HeldOutSkipped: allCases.Count - cases.Count);
             var runner = new EvalRunner(services.Optimizer, services.Client);
             Log.Info($"eval started cases={cases.Count} repeat={repeat} judge={(judge ? judgeEndpoint.Label : "off")} independent={independent} customPrompt={instructionsPath is not null}");
             var results = await runner.RunAsync(cases, endpoints, judge ? judgeEndpoint : null, pause, new Progress<string>(Progress), CancellationToken.None, repeat, options);
