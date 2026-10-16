@@ -11,6 +11,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - `--system-prompt <file>` runs the quality check with another version of the rewriting rules, such as `eval/prompts/v1.0.0.txt`, without a new build.
 - `--eval-compare before\results.json after\results.json compare.md` compares two runs case by case and separates real changes from run-to-run noise.
 - Eval cases can carry the app hint (`writtenIn`), and 8 new cases cover the rewrites reported in #16, #17, #18 and #25–#28.
+- Quality check: cases say how deep the ideal rewrite goes (`expect`) and what it must cover (`mustCover`), and a third of the new cases are held out (`--include-held-out`) for final measurements. 36 new cases cover agent tasks, mid-chat messages, the gaps found in real prompts and open-ended requests; `cases-write.json` holds briefs for the coming write mode.
 
 ### Fixed
 - Quality check: runs that errored (rate limits, network failures) no longer count as failures. Comparisons leave them out, mark a case "not comparable" when errors leave it too few clean runs, and report how many runs errored on each side; pass rates in the report leave them out too.

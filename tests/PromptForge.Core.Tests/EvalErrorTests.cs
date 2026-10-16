@@ -133,3 +133,45 @@ public class EvalErrorTests
         Assert.Contains("**Stopped early.** Out of allowance.", report);
     }
 }
+
+public class EvalCaseSetTests
+{
+    private static string RepoFile(string relative)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "PromptForge.slnx"))) dir = dir.Parent;
+        return Path.Combine(dir?.FullName ?? throw new DirectoryNotFoundException("repo root"), relative);
+    }
+
+    [Theory]
+    [InlineData("eval/cases.json")]
+    [InlineData("eval/cases-write.json")]
+    public void Every_case_loads_and_says_how_deep_the_rewrite_should_go(string file)
+    {
+        var cases = EvalRunner.LoadCases(RepoFile(file));
+        Assert.NotEmpty(cases);
+        Assert.All(cases, c => Assert.NotEqual(Expectation.Unspecified, c.Expect));
+    }
+
+    [Fact]
+    public void Held_out_cases_are_left_out_unless_asked_for()
+    {
+        var cases = new[]
+        {
+            new EvalCase { Id = "a", Category = "c", Draft = "x" },
+            new EvalCase { Id = "b", Category = "c", Draft = "y", HeldOut = true },
+        };
+        Assert.Equal(["a"], EvalRunner.SelectCases(cases, includeHeldOut: false).Select(c => c.Id));
+        Assert.Equal(["a", "b"], EvalRunner.SelectCases(cases, includeHeldOut: true).Select(c => c.Id));
+    }
+
+    [Theory]
+    [InlineData(Verdict.LightEdit, "Thanks!", false)]
+    [InlineData(Verdict.Rewritten, "Thank you. Let me know what you'd like me to do next.", true)]
+    public void A_draft_that_asks_for_nothing_must_stay_as_it_is(Verdict verdict, string output, bool fails)
+    {
+        var evalCase = new EvalCase { Id = "thanks", Category = "mid-chat", Draft = "thank u", Expect = Expectation.Keep };
+        var result = new OptimizeResult { Original = "thank u", Prompt = output, TaskType = TaskType.General, Verdict = verdict, Model = "m" };
+        Assert.Equal(fails, EvalRunner.Grade(evalCase, result).Any(f => f.StartsWith("should keep", StringComparison.Ordinal)));
+    }
+}

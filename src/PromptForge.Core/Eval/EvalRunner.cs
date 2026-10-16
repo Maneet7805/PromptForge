@@ -9,6 +9,23 @@ using PromptForge.Core.Settings;
 
 namespace PromptForge.Core.Eval;
 
+/// <summary>How deep the ideal rewrite goes, from docs/design/rewrite-intent.md ("How deep a rewrite goes").</summary>
+public enum Expectation
+{
+    /// <summary>Not labelled.</summary>
+    Unspecified,
+    /// <summary>Asks for nothing new (a statement, an answer, content with no instruction): fix the wording only.</summary>
+    Keep,
+    /// <summary>A clear request: make it clear, add nothing.</summary>
+    Clarify,
+    /// <summary>A stated goal the rewrite must turn into the steps or checks it requires.</summary>
+    SpellOut,
+    /// <summary>The draft asks the AI to design something open-ended: propose a structure, labelled as suggestions.</summary>
+    Propose,
+    /// <summary>The draft is a brief for a prompt: write the full prompt (#43).</summary>
+    Write,
+}
+
 public sealed record EvalCase
 {
     public required string Id { get; init; }
@@ -33,6 +50,18 @@ public sealed record EvalCase
 
     /// <summary>Minimum runs for this case. The run's own repeat count applies when it's higher.</summary>
     public int Repeat { get; init; } = 1;
+
+    /// <summary>How deep the ideal rewrite goes.</summary>
+    public Expectation Expect { get; init; }
+
+    /// <summary>What the ideal rewrite must cover, in plain words, for the judge (#34). Not checked by code.</summary>
+    public IReadOnlyList<string> MustCover { get; init; } = [];
+
+    /// <summary>Kept out of runs unless asked for, so the rules aren't tuned to it; used for the final measurement.</summary>
+    public bool HeldOut { get; init; }
+
+    /// <summary>Where the case comes from, e.g. "#26", "user 2026-10-16", "WildChat pattern".</summary>
+    public string? Source { get; init; }
 }
 
 public sealed record JudgeVerdict(bool AnsweredInsteadOfRewriting, bool InventedDetails, string InventedExamples, bool ClearerThanOriginal, bool AppropriateLength, string Comment,
@@ -40,7 +69,7 @@ public sealed record JudgeVerdict(bool AnsweredInsteadOfRewriting, bool Invented
     bool WrittenAsReply = false, bool AddedRequests = false, string AddedExamples = "");
 
 /// <summary>How a run of the quality check is set up, for the report header.</summary>
-public sealed record EvalRunInfo(string ModelLabel, string? JudgeLabel = null, bool JudgeIndependent = false, string? InstructionsLabel = null, string? StoppedEarly = null);
+public sealed record EvalRunInfo(string ModelLabel, string? JudgeLabel = null, bool JudgeIndependent = false, string? InstructionsLabel = null, string? StoppedEarly = null, int HeldOutSkipped = 0);
 
 public sealed record EvalCaseResult
 {
@@ -204,6 +233,10 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
 
     private sealed class RateLimitStop(string message) : Exception(message);
 
+    /// <summary>The cases a run uses: held-out cases only when asked for.</summary>
+    public static IReadOnlyList<EvalCase> SelectCases(IReadOnlyList<EvalCase> cases, bool includeHeldOut) =>
+        includeHeldOut ? cases : cases.Where(c => !c.HeldOut).ToList();
+
     /// <summary>Runs for one case: the run's repeat count, or the case's own minimum if higher.</summary>
     public static int RunsFor(EvalCase evalCase, int repeat) => Math.Max(1, Math.Max(evalCase.Repeat, repeat));
 
@@ -240,6 +273,10 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
 
         if (evalCase.ExpectMinimalChange && result.Verdict == Verdict.Rewritten && ratio > 1.4)
             failures.Add($"rewrote an already-good draft ({ratio:0.0}x length)");
+
+        // A draft that asks for nothing new gets its wording fixed, nothing more (Q1).
+        if (evalCase.Expect == Expectation.Keep && (result.Verdict == Verdict.Rewritten || ratio > 1.6))
+            failures.Add($"should keep the draft as it is, but rewrote it ({ratio:0.0}x length)");
 
         return failures;
     }
@@ -307,6 +344,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         sb.AppendLine(inv, $"Run {DateTime.Now:yyyy-MM-dd HH:mm} · model {info.ModelLabel}");
         if (info.InstructionsLabel is not null) sb.AppendLine(inv, $"\nSystem prompt: {info.InstructionsLabel}");
         if (info.StoppedEarly is not null) sb.AppendLine(inv, $"\n**Stopped early.** {info.StoppedEarly}");
+        if (info.HeldOutSkipped > 0) sb.AppendLine(inv, $"\nHeld-out cases left out: {info.HeldOutSkipped} (run with --include-held-out for the final measurement).");
         if (info.JudgeLabel is not null)
             sb.AppendLine(inv, $"\nJudge: {info.JudgeLabel} ({(info.JudgeIndependent ? "independent provider" : "same provider as the optimiser, so not independent; set a judge in Settings → Data")})");
         sb.AppendLine();
