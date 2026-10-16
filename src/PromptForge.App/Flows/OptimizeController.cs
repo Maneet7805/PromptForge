@@ -113,7 +113,7 @@ internal sealed class OptimizeController(AppServices services)
             Mode = mode,
             TargetLabel = appLabel,
             InitialMode = settings.DefaultMode,
-            Run = (optimizeMode, task, details, ct) => OptimizeAsync(text, optimizeMode, task, details, appLabel, ct),
+            Run = (optimizeMode, task, answers, ct) => OptimizeAsync(text, optimizeMode, task, answers, appLabel, ct),
             Preloaded = IsOwnOutput(text) ? Unchanged(text) : null,
             PreloadedNote = IsOwnOutput(text) ? "This is the prompt PromptForge just produced, so it wasn't sent again. Press Ctrl+R to optimise it anyway." : null,
         };
@@ -156,13 +156,15 @@ internal sealed class OptimizeController(AppServices services)
         }
     }
 
-    private async Task<OptimizeResult> OptimizeAsync(string text, OptimizeMode mode, TaskType task, string? details, string? appLabel, CancellationToken ct)
+    private async Task<OptimizeResult> OptimizeAsync(string text, OptimizeMode mode, TaskType task, ReviewAnswers? answers, string? appLabel, CancellationToken ct)
     {
         var settings = services.Settings;
         var endpoints = EndpointResolver.Resolve(settings, services.Secrets);
         var request = new OptimizeRequest
         {
-            Text = details is null ? text : $"{text.TrimEnd()}\n\nAdditional details: {details}",
+            Text = text,
+            PreviousQuestions = answers?.Questions ?? [],
+            Answers = answers?.Text,
             Mode = mode,
             TaskOverride = task,
             PersonalContext = string.IsNullOrWhiteSpace(settings.PersonalContext) ? null : settings.PersonalContext,
@@ -171,7 +173,7 @@ internal sealed class OptimizeController(AppServices services)
         var result = await services.Optimizer.OptimizeAsync(request, endpoints, services.OptimizerOptions, ct);
         Log.Info($"optimised task={result.TaskType} verdict={result.Verdict} model={result.Model} ms={result.Elapsed.TotalMilliseconds:0} " +
                  $"tokens={result.PromptTokens}/{result.CachedTokens}c/{result.CompletionTokens} attempts={result.Attempts} warnings={result.Warnings.Count}");
-        return details is null ? result : result with { Original = text };
+        return result;
     }
 
     private async Task ApplyDecisionAsync(ReviewDecision? decision, TargetInfo target, CaptureMode mode, string original)

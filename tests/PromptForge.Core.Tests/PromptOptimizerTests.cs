@@ -37,6 +37,56 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task Answers_are_sent_with_their_questions_outside_the_draft()
+    {
+        var client = new FakeClient(_ => Json("Write an 800-word essay about AI in healthcare for a university course."));
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest
+        {
+            Text = "write about AI in healthcare",
+            PreviousQuestions = ["Who is it for?", "How long should it be?"],
+            Answers = "uni essay, 800",
+        }, [Primary]);
+
+        var message = client.Calls.Single().Messages[1].Content;
+        Assert.Contains("<draft>\nwrite about AI in healthcare\n</draft>", message);
+        Assert.Contains("<user_answers>", message);
+        Assert.Contains("- Who is it for?\n- How long should it be?\nReply:\nuni essay, 800\n</user_answers>", message);
+        Assert.True(message.IndexOf("</draft>", StringComparison.Ordinal) < message.IndexOf("<user_answers>", StringComparison.Ordinal));
+        Assert.Equal("write about AI in healthcare", result.Original);
+    }
+
+    [Fact]
+    public async Task Answers_are_not_held_to_the_draft_preservation_check()
+    {
+        // "800" only appears in the answers, so its absence from the rewrite must not trigger a repair call.
+        var client = new FakeClient(_ => Json("Write a short essay about AI in healthcare for a university course."));
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest
+        {
+            Text = "write about AI in healthcare",
+            Answers = "uni essay, 800 words, file notes_v2.md",
+        }, [Primary]);
+
+        Assert.Single(client.Calls);
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public void No_answers_section_without_answers()
+    {
+        var request = new OptimizeRequest { Text = "hi", PreviousQuestions = ["Who is it for?"] };
+        Assert.DoesNotContain("<user_answers>", UserMessageBuilder.Build(request, BlockMasker.Mask("hi")));
+    }
+
+    [Fact]
+    public void Answers_without_questions_are_still_sent()
+    {
+        var request = new OptimizeRequest { Text = "hi", Answers = "also keep it formal" };
+        var message = UserMessageBuilder.Build(request, BlockMasker.Mask("hi"));
+        Assert.Contains("Reply:\nalso keep it formal\n</user_answers>", message);
+        Assert.DoesNotContain("Earlier questions:", message);
+    }
+
+    [Fact]
     public async Task Unchanged_verdict_returns_the_original_exactly()
     {
         var original = "What is the capital of Australia?\r\n";
