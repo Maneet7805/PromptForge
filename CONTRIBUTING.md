@@ -80,9 +80,10 @@ These steps apply to everyone, whether you work in a branch of this repo or in a
 
 ## Releasing (maintainers)
 
-1. Update `<Version>` in `src/PromptForge.App/PromptForge.App.csproj` and move `Unreleased` notes in `CHANGELOG.md` under the new version.
-2. Commit, then tag and push: `git tag -a v1.2.3 -m "v1.2.3" && git push --follow-tags`.
-3. The [Release workflow](.github/workflows/release.yml) builds the exe, creates the GitHub release, and uses the changelog section as release notes.
+1. Update `<Version>` in `src/PromptForge.App/PromptForge.App.csproj` and move the `Unreleased` notes in `CHANGELOG.md` under the new version and date. Merge that change to `main` through a pull request.
+2. Wait for "Build and test" to pass on `main`.
+3. Only the owner can create tags. Tag the merged commit and push the tag: `git checkout main && git pull && git tag v1.2.3 && git push origin v1.2.3`. Don't create the tag by publishing a release on the GitHub website: the Release workflow creates the release itself and would fail on an existing one. Don't name a branch like a tag.
+4. The [Release workflow](.github/workflows/release.yml) builds the exe, creates the GitHub release, and uses the changelog section as release notes. Check that the release has `PromptForge.exe`, the zip and `SHA256SUMS.txt`.
 
 ## Code of conduct
 
