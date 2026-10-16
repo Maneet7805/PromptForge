@@ -1,6 +1,6 @@
 # Rewrite by intent
 
-Status: **draft for review** (#31). Nothing in the app changes until this is agreed. Part of the plan in #38.
+Status: **agreed 2026-10-16** (#31). D1–D4 decided as recommended; D5 is settled by #32. Part of the plan in #38.
 
 ## The principle
 
@@ -166,23 +166,23 @@ These are for #35, listed here so the review covers them:
 - **The "missing material" rule changes** from "ask what it is" to question 5: keep the reference, add nothing to the prompt.
 - **Modes stay, with clearer meanings** (see D4).
 
-## Decisions for you
+## Decisions
 
-Each has my recommendation. Reply with the numbers you disagree with.
+D1–D4 were decided on 2026-10-16, each as recommended. D5 is answered by #32.
 
 **D1. Should every added line say where it came from?** The JSON gets an `added` list: each added line with the draft phrase it traces to. The app checks that the phrase is really in the draft, the judge grades whether the trace holds, and the review window can show "why this line".
-*Recommendation: yes.* It turns "never add what they didn't mean" from a hope into something the eval can check. Cost: [Guessing] about 10–20% more output tokens per rewrite.
+*Decided: yes.* It turns "never add what they didn't mean" from a hope into something the eval can check. Cost: [Guessing] about 10–20% more output tokens per rewrite.
 
 **D2. Where do proposals go for open-ended requests (the tutor case)?** (a) In the prompt, as a labelled "Suggested approach" section you edit before sending; (b) as checkboxes in the review window (#37).
-*Recommendation: (a) now, (b) later in #37.* (a) needs no UI work and is measurable in #35.
+*Decided: (a) now, (b) later in #37.* (a) needs no UI work and is measurable in #35.
 
 **D3. When the draft asks an agent to do something destructive but states no safety goal** ("delete my old emails"), should the rewrite add "show me the list before deleting"?
-*Recommendation: no; ask in the review window instead.* Adding it breaks the principle, and once one safety line gets added "because it's obviously wanted", the padding comes back. The risk: if you skip the question, the agent deletes without asking, as it would have without PromptForge.
+*Decided: no; ask in the review window instead.* Adding it breaks the principle, and once one safety line gets added "because it's obviously wanted", the padding comes back. The risk: if you skip the question, the agent deletes without asking, as it would have without PromptForge.
 
 **D4. What do the modes mean?**
-*Recommendation:* **Light** fixes wording only (Q1–Q2, Q5, Q7). **Standard** answers all eight questions. **Detailed** answers the same questions but with fuller structure, not more content. Today Detailed adds sections that invite padding.
+*Decided:* **Light** fixes wording only (Q1–Q2, Q5, Q7). **Standard** answers all eight questions. **Detailed** answers the same questions but with fuller structure, not more content. Today Detailed adds sections that invite padding.
 
-**D5. Are eight questions the right set?** #32 tests them against ~200 of your real prompts before anything is built. A question that never changes a rewrite gets dropped; a real prompt the questions can't handle adds one.
+**D5. Are eight questions the right set?** (Open until #32.) #32 tests them against ~200 of your real prompts before anything is built. A question that never changes a rewrite gets dropped; a real prompt the questions can't handle adds one.
 
 ## How it's measured
 
