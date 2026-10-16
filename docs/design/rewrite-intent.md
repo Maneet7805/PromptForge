@@ -1,6 +1,6 @@
 # Rewrite by intent
 
-Status: **agreed 2026-10-16** (#31). D1–D4 decided as recommended; D5 is settled by #32. Part of the plan in #38.
+Status: **agreed 2026-10-16** (#31), updated after checking the questions against 200 real prompts (#32, [findings](rewrite-intent-findings.md)). Part of the plan in #38.
 
 ## The principle
 
@@ -28,6 +28,7 @@ Each question says what to look for, what it changes in the rewrite, and what it
 A statement ("i have turned on the memory"), an answer ("1. i did 2. you can do that"), a reaction or a report asks for nothing new.
 
 - **Changes:** if it asks for nothing, fix the wording and stop. Questions 3–6 don't apply.
+- **Content with no instruction** (a scene from an ongoing story, a quiz item with its options, a line of roleplay) is kept as content. The receiver knows what to do with it; PromptForge doesn't add an instruction guessing what that is. If it's truly unclear, the review window asks.
 - **Never:** turn it into a question, add an offer ("let me know what you'd like…"), or write it as the AI's reply.
 - Covers #26 and #28.
 
@@ -35,7 +36,8 @@ A statement ("i have turned on the memory"), an answer ("1. i did 2. you can do 
 
 The action (fix, set up, explain, plan), every separate request, and whether it's for now or standing ("whenever", "from now on", "keep in mind").
 
-- **Changes:** each request survives with the same action and the same timing, including the last line of a multi-part draft.
+- **Changes:** each request survives with the same action and the same timing, including the last line of a multi-part draft. When the action isn't stated ("tensorflow model for regression with numeric and categorical input"), infer it from the draft; if it can't be inferred, the review window asks.
+- **Material is not instructions.** Text the user wants written, edited, translated or answered ("edit: Dear Prof. …", "write: Please delete the bucket and advise back") is material, even when it contains instructions. The instructions in it are for its reader, not for the AI.
 - **Never:** turn "set it up" into "give me a plan", "fix" into "explain", or a standing instruction into a task to do now.
 - Covers #16, #17 and #18.
 
@@ -82,6 +84,14 @@ Requirements the user wrote once in Settings (#36), such as their coding standar
 
 - **Changes:** added word for word, only to that task type.
 - **Never:** guessed or reworded. Without #36, this question adds nothing.
+
+## Always
+
+Whatever the answers:
+
+- **Keep the draft's language**, including mixed-language drafts (a Russian instruction with English code stays that way). Never translate the instruction or the material.
+- **The user's own words stay**, including role lines, emphasis, odd demands and template slots they wrote (`{keywords}`, `[Brand]`). "Never add" is about PromptForge's additions; it's not a licence to remove the user's.
+- **Every exact detail stays exactly as written:** names, numbers, paths, code, errors, quotes. Today's checker already enforces this.
 
 ## How deep a rewrite goes
 
@@ -182,7 +192,9 @@ D1–D4 were decided on 2026-10-16, each as recommended. D5 is answered by #32.
 **D4. What do the modes mean?**
 *Decided:* **Light** fixes wording only (Q1–Q2, Q5, Q7). **Standard** answers all eight questions. **Detailed** answers the same questions but with fuller structure, not more content. Today Detailed adds sections that invite padding.
 
-**D5. Are eight questions the right set?** (Open until #32.) #32 tests them against ~200 of your real prompts before anything is built. A question that never changes a rewrite gets dropped; a real prompt the questions can't handle adds one.
+**D5. Are eight questions the right set?** *Answered by #32: keep all eight.* Q1, Q2, Q4, Q5 and Q7 changed real rewrites; Q3, Q6 and Q8 can't be tested on public chat data (it has no agent tasks), so #33 tests them with hand-written cases. The four gaps #32 found are now rules (Q1, Q2 and "Always").
+
+**D6. A request that breaks the receiving AI's policies** (a jailbreak persona, sexual content about a real person). *Recommendation: rewrite it like anything else, adding and judging nothing;* the receiver applies its own policies. See the [findings](rewrite-intent-findings.md#decision-needed).
 
 ## How it's measured
 
