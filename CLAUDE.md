@@ -4,6 +4,10 @@
 
 Windows tray app. The user selects text in any app, presses a hotkey, and PromptForge rewrites the draft as a clearer prompt for an AI assistant, shown in a review window before anything is pasted. It also has voice dictation and a built-in quality check (eval). Public repo: nothing private goes in commits, issues or PRs.
 
+## Setup (new machine or collaborator)
+
+Install the .NET 10 SDK, and the GitHub CLI (`gh auth login`) for the slash commands. The App only builds on Windows, but Core and its tests run on any OS. Private notes about your own machine go in `CLAUDE.local.md` (gitignored). Not a collaborator? Fork the repo; the same files apply.
+
 ## Commands
 
 ```
