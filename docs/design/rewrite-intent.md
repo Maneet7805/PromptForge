@@ -11,7 +11,11 @@ Both halves matter, and v1.1.1 fails both:
 - **It adds what nobody meant.** In the first judged comparison (2026-10-15), 125 of 221 rewrites added requests the draft never made: "if you need details, ask me first", lists of deliverables, answer formats.
 - **It leaves out what the user did mean.** "Organise my drive, make sure nothing breaks" comes back as tidier English, when the user plainly meant "work in a way that can't lose my files". A rewrite that only fixes the English when the draft needed more counts as a failure too.
 
-One test separates the two: **every line the rewrite adds must trace back to something the user wrote.** "Plan first and wait for my approval" traces to "make sure nothing breaks". "Follow the existing conventions" doesn't trace to "fix this issue", so it isn't added (the user's own standards come from #36, word for word).
+One test separates the two: **every line the rewrite adds must serve a goal the user stated.** Not only the words they typed: a user who asks for a code review may not know what a good review checks, but the AI does, and that knowledge is the point of the tool. "Check error handling and give each finding a severity" serves "do a code review"; "plan first and wait for my approval" serves "make sure nothing breaks". A line that serves no stated goal ("be thorough", "use best practices", a role line) isn't added.
+
+Added knowledge must also **change the result**. The receiving AI already knows how to do a code review, so a generic checklist it would follow anyway is padding. What's worth adding is what carries a decision: which checks matter for this goal, what form the answer takes, and choices the user may not know exist (shown as suggestions they can remove, see Q4).
+
+(Changed 2026-10-16: the test was "traces to something the user wrote". The user pointed out that people who aren't good prompters don't know the terms; the AI does.)
 
 ## Why questions, not categories
 
@@ -45,8 +49,12 @@ The action (fix, set up, explain, plan), every separate request, and whether it'
 
 "Make sure nothing breaks", "no deleting without asking", "don't overwhelm me", "for beginners".
 
-- **Changes:** each one becomes concrete steps or criteria the receiving AI can follow. "Make sure nothing breaks" becomes: propose a plan, wait for approval, work in small batches, keep a log, check the result. This is where most of the real value is.
-- **Never:** add a goal or limit the user didn't state. The steps must serve the stated goal and nothing else.
+The task itself is a goal too: "do a code review", "fix this issue", "write a README for a private repo".
+
+- **Changes:** each goal becomes the concrete steps, checks or criteria it requires, using the AI's own knowledge of the task, not only the user's words. "Make sure nothing breaks" becomes: propose a plan, wait for approval, work in small batches, keep a log, check the result. "Do a code review" becomes: what to check (correctness, edge cases, error handling, security) and the form of each finding (where, what, why, severity, fix). This is where most of the real value is.
+- **Only what changes the result:** checks that decide what the answer covers or how it's given. Not general advice the receiver follows anyway.
+- **May add what to check, never what's true.** "Check whether secrets are committed" is fine; "the repo uses Docker" is invented.
+- **Never:** add a goal or limit the user didn't state. Every step must serve a stated goal; the D1 trace names which one.
 
 ### 4. What open choices would change the result?
 
@@ -55,6 +63,7 @@ Choices the draft leaves open that would change the answer a lot: which drive, w
 - **Changes:**
   - **A few choices:** ask them in the review window. #19 sends the answers back into the rewrite.
   - **Many choices, and the draft asks the AI to design something** ("teach me every day, you decide"): propose a structure in the rewrite, clearly labelled as a proposal the user can change or remove.
+  - **Choices the user may not know exist** ("only the changed lines, or the whole file?", "should style issues count?"): add the few that matter most as **Suggested (keep or remove)**, never as if the user chose them.
 - **Never:** present a choice as if the user made it, or invent the answer to a question only the user can answer.
 
 ### 5. What does it point to that the rewrite doesn't contain?
@@ -148,9 +157,36 @@ The proposals are where PromptForge earns its keep: these choices change the tea
 
 Answers: a clear request (Q2), no stated goals (Q3), points to an issue the rewrite doesn't contain (Q5), sent to a coding agent (Q7).
 
-Expected rewrite: **"Fix this issue."** Nothing added. The review window may ask which issue, if the draft gives no other clue. With #36, the user's own coding standards are added word for word.
+Expected rewrite (in Standard mode):
 
-This is deliberately less than the user's expected version ("find the root cause, follow the conventions, no workarounds, check for regressions"). Those are good standards, but they're the user's standards for every coding task, not something "fix this issue" says. They belong in #36 (or in the repo's `CLAUDE.md`), where they apply every time without being guessed.
+> Fix this issue.
+>
+> **Suggested (keep or remove):** fix the root cause rather than working around it, and check that the fix works and nothing else broke.
+
+The review window may ask which issue, if the draft gives no other clue. "Root cause, not a workaround" is a real choice that changes the result, so it's suggested. "Follow the existing conventions" is something a coding agent does anyway, so it isn't. With #36, the user's own coding standards are added word for word on top, without the "Suggested" label, because the user wrote them.
+
+### "do a code review" (from 2026-10-16)
+
+The user doesn't know how a code review is done; the AI does. Answers: a clear request with the task as its goal (Q2, Q3), open choices the user may not know about (Q4), points to code it doesn't contain (Q5).
+
+Expected rewrite:
+
+> Review the code changes in this pull request.
+>
+> For each problem found, give the file and line, what's wrong, why it matters, a severity (critical / major / minor), and a suggested fix.
+>
+> Check:
+> - Correctness: logic errors, unhandled edge cases (empty, null, very large inputs), off-by-one
+> - Error handling: failures that are swallowed or crash
+> - Security: unvalidated input, secrets in code, injection
+> - Readability and maintainability: unclear names, duplicated logic
+>
+> **Suggested (keep or remove):**
+> - Only review the changed lines, not the whole file
+> - Ignore pure style issues unless they hide a bug
+> - End with a verdict: approve, approve with changes, or needs rework
+
+Review-window questions: which PR or code; anything the user is especially worried about. Every line serves "do a code review"; none states a fact about the code.
 
 ### Answers and statements
 
@@ -162,7 +198,7 @@ This is deliberately less than the user's expected version ("find the root cause
 
 - "If you need more details, ask me first" lines, or any other fallback the user didn't write.
 - Role lines ("Act as an expert…").
-- Generic best-practice blocks ("be thorough", "follow best practices", "ask for the root cause before the fix").
+- Generic best-practice blocks that serve no stated goal or change nothing ("be thorough", "follow best practices", "use clean code").
 - Deliverables, formats, counts or lengths the draft didn't imply.
 - Placeholders, or product names the draft didn't use.
 - Answering the draft, or writing it as the AI's reply.
@@ -180,7 +216,7 @@ These are for #35, listed here so the review covers them:
 
 D1–D4 were decided on 2026-10-16, each as recommended. D5 is answered by #32.
 
-**D1. Should every added line say where it came from?** The JSON gets an `added` list: each added line with the draft phrase it traces to. The app checks that the phrase is really in the draft, the judge grades whether the trace holds, and the review window can show "why this line".
+**D1. Should every added line say where it came from?** The JSON gets an `added` list: each added line with the draft phrase naming the goal it serves. The app checks that the phrase is really in the draft, the judge grades whether the trace holds, and the review window can show "why this line".
 *Decided: yes.* It turns "never add what they didn't mean" from a hope into something the eval can check. Cost: [Guessing] about 10–20% more output tokens per rewrite.
 
 **D2. Where do proposals go for open-ended requests (the tutor case)?** (a) In the prompt, as a labelled "Suggested approach" section you edit before sending; (b) as checkboxes in the review window (#37).
@@ -200,5 +236,6 @@ D1–D4 were decided on 2026-10-16, each as recommended. D5 is answered by #32.
 
 - #32: the questions, checked by hand against ~200 real prompts.
 - #33: test cases that expect expansion (the Drive, the tutor), alongside the existing ones that expect no change, plus a held-out third that isn't used while tuning.
-- #34: the judge gets "under-delivered" (didn't spell out a stated goal) and a narrower "added requests" (added something that doesn't trace back). It's checked against your own grades before its numbers are trusted.
+- #34: the judge gets "under-delivered" (didn't spell out what a stated goal requires) and a narrower "added requests" (added something that serves no stated goal, or states a fact the draft didn't give). It's checked against your own grades before its numbers are trusted.
 - #35: the new rules, measured against the 2026-10-15 baseline, after #39 is fixed so rate-limit errors don't count as failures.
+- #43: an **outcome test** for added knowledge. Send the draft and the rewrite to the receiving AI and have the judge compare the two answers. Added checks that don't produce a better answer are padding, and get cut.
