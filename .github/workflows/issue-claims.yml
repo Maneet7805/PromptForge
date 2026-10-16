@@ -1,0 +1,81 @@
+name: Issue claims
+
+# Comment `/claim` on an issue to be assigned; `/unclaim` to release it.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: issue-claim-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  claim:
+    if: ${{ !github.event.issue.pull_request && contains(github.event.comment.body, '/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const comment = context.payload.comment;
+            const user = comment.user.login;
+
+            const match = comment.body.trim().match(/^\/(claim|unclaim)\b/i);
+            if (!match) return;
+            const command = match[1].toLowerCase();
+
+            const say = (body) =>
+              github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+
+            if (issue.state !== 'open') {
+              await say(`@${user} this issue is closed, so it can't be claimed.`);
+              return;
+            }
+
+            // Re-read assignees so two near-simultaneous comments see the same state.
+            const { data: fresh } = await github.rest.issues.get({ owner, repo, issue_number: issue.number });
+            const assignees = fresh.assignees.map((a) => a.login);
+            const isOwner = comment.author_association === 'OWNER';
+            const trusted = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(comment.author_association);
+
+            if (command === 'claim') {
+              if (!trusted) {
+                await say(`@${user} only collaborators can use \`/claim\`. Leave a comment here and the owner will assign it.`);
+                return;
+              }
+              if (assignees.includes(user)) {
+                await say(`@${user} this issue is already assigned to you.`);
+                return;
+              }
+              if (assignees.length > 0) {
+                await say(`@${user} this issue is already claimed by ${assignees.map((a) => '@' + a).join(', ')}. Pick another issue or ask in this thread.`);
+                return;
+              }
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [user] });
+              await say(
+                `Claimed by @${user}. Branch name: \`<type>/${issue.number}-<short-slug>\` ` +
+                `(types: feat, fix, docs, eval, infra, chore). Open a draft PR with \`Fixes #${issue.number}\` ` +
+                `early; claims with no activity for 7 days are released.`
+              );
+              return;
+            }
+
+            // /unclaim
+            if (assignees.length === 0) {
+              await say(`@${user} nobody is assigned to this issue.`);
+              return;
+            }
+            if (assignees.includes(user)) {
+              await github.rest.issues.removeAssignees({ owner, repo, issue_number: issue.number, assignees: [user] });
+              await say(`@${user} released this issue. Anyone can \`/claim\` it now.`);
+            } else if (isOwner) {
+              await github.rest.issues.removeAssignees({ owner, repo, issue_number: issue.number, assignees });
+              await say(`Released by the owner (was ${assignees.map((a) => '@' + a).join(', ')}). Anyone can \`/claim\` it now.`);
+            } else {
+              await say(`@${user} you aren't assigned to this issue, so you can't release it.`);
+            }

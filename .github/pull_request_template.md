@@ -10,6 +10,7 @@
 
 ## Checklist
 
+- [ ] Issue was claimed (`/claim`) and the branch is named `<type>/<issue-number>-<short-slug>`
 - [ ] No prompt text, transcripts or keys are logged
 - [ ] Nothing is auto-submitted, and no keystrokes are sent to terminals
 - [ ] `CHANGELOG.md` updated under `Unreleased`
