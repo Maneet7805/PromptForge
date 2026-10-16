@@ -92,6 +92,7 @@ internal static class EvalCommand
             Log.Info($"eval started cases={cases.Count} repeat={repeat} judge={(judge ? judgeEndpoint.Label : "off")} independent={independent} customPrompt={instructionsPath is not null}");
             var results = await runner.RunAsync(cases, endpoints, judge ? judgeEndpoint : null, pause, new Progress<string>(Progress), CancellationToken.None, repeat, options);
 
+            info = info with { StoppedEarly = runner.StoppedEarly };
             await File.WriteAllTextAsync(Path.Combine(outDir, "report.md"), EvalRunner.BuildReport(results, info));
             await File.WriteAllTextAsync(Path.Combine(outDir, "results.json"), JsonSerializer.Serialize(results.Select(r => new
             {
@@ -113,7 +114,9 @@ internal static class EvalCommand
                 r.Result?.CompletionTokens,
                 r.Judge,
             }), new JsonSerializerOptions { WriteIndented = true }));
-            var summary = $"done: {results.Count(r => r.Passed)}/{results.Count} runs passed";
+            var errors = results.Count(r => r.Error is not null);
+            var summary = $"{(runner.StoppedEarly is null ? "done" : "stopped early")}: {results.Count(r => r.Passed)}/{results.Count - errors} runs passed, {errors} errored"
+                + (runner.StoppedEarly is null ? "" : $". {runner.StoppedEarly}");
             Progress(summary);
             Log.Info("eval " + summary);
             return true;

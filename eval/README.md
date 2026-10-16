@@ -19,7 +19,11 @@ From PowerShell, in the repo folder, with PromptForge running or not:
 | `--system-prompt <file>` | Use these rewriting rules instead of the built-in ones. |
 | `--pause-seconds N` | Wait between requests (default 8), to stay inside free-tier rate limits. |
 
-The command returns when it's done; `progress.txt` in the output folder shows where it is. A full run with the judge is roughly 230 rewrites plus 230 judge calls, and takes about an hour. Gemini's free tier allows roughly 500 requests a day, so two judged runs (a comparison) fit in one day but not three.
+The command returns when it's done; `progress.txt` in the output folder shows where it is. A full run with the judge is roughly 230 rewrites plus 230 judge calls, and takes about an hour.
+
+**Free-tier limits.** Groq's free tier runs out partway through the second full run of a day (2026-10-15: from run 153 of the second run). So run the two sides of a comparison on different days, or use `--repeat 2`. Gemini (the judge) allows roughly 500 requests a day.
+
+When a provider says to wait, the runner waits (up to 20 minutes, 3 times per call) and retries the same run. When the wait is longer, the day's allowance is gone: the run stops, keeps what finished, and `progress.txt` and the report say which cases didn't finish. Runs that still errored are left out of pass rates and comparisons, never counted as failures.
 
 ## Set up the judge
 
@@ -39,7 +43,7 @@ This is how a change to the system prompt gets accepted or rejected.
    & "$env:LOCALAPPDATA\Programs\PromptForge\PromptForge.exe" --eval-compare eval\results\v1.0.0\results.json eval\results\main\results.json eval\results\compare.md
    ```
 
-`compare.md` lists each case whose pass rate changed. A case is **better** or **worse** only when its pass rate moved by at least half (with 3 runs: 0–1 passes to 2–3, or the reverse); smaller moves, and any change in a case that ran only once, are **noise**. Keep a rule that makes cases better without making any worse, and look at any "worse" case before merging.
+`compare.md` lists each case whose pass rate changed. Errored runs are left out; a case with no clean runs on one side, or fewer than two because of errors, is **not comparable** and needs re-running. A case is **better** or **worse** only when its pass rate moved by at least half (with 3 runs: 0–1 passes to 2–3, or the reverse); smaller moves, and any change in a case that ran only once, are **noise**. Keep a rule that makes cases better without making any worse, and look at any "worse" case before merging.
 
 Only the system prompt changes between the two runs; the rest of the pipeline (masking, repair pass, checks) is the current build's.
 
