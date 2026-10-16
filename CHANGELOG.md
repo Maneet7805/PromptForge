@@ -14,6 +14,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - Quality check: cases say how deep the ideal rewrite goes (`expect`) and what it must cover (`mustCover`), and a third of the new cases are held out (`--include-held-out`) for final measurements. 36 new cases cover agent tasks, mid-chat messages, the gaps found in real prompts and open-ended requests; `cases-write.json` holds briefs for the coming write mode.
 
 ### Fixed
+- Re-run no longer discards edits you made to the improved prompt without asking: it now asks before replacing them. "Undo my edits" also no longer lights up for an untouched multi-line prompt (#20).
 - Quality check: runs that errored (rate limits, network failures) no longer count as failures. Comparisons leave them out, mark a case "not comparable" when errors leave it too few clean runs, and report how many runs errored on each side; pass rates in the report leave them out too.
 - Quality check: a rate limit no longer turns the rest of the run into errors. The runner waits out short limits (up to 20 minutes, 3 times per call) and retries the same run; when the day's allowance is gone it stops cleanly, keeps what finished, and says which cases didn't run in `progress.txt` and the report.
 - Quality check: a judged run the judge couldn't grade is now an error instead of a pass.
