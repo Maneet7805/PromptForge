@@ -479,7 +479,7 @@ public class EvalGradingNumberTests
         try
         {
             File.WriteAllText(path, """[{"Id":"a","Category":"c","Run":1,"Passed":true,"Error":null},{"Id":"a","Category":"c","Run":2,"Passed":false,"Error":"x"}]""");
-            Assert.Equal([new CaseRun("a", true), new CaseRun("a", false)], EvalComparison.LoadRuns(path));
+            Assert.Equal([new CaseRun("a", true), new CaseRun("a", false, Errored: true)], EvalComparison.LoadRuns(path));
         }
         finally
         {

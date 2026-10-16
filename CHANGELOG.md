@@ -12,6 +12,11 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - `--eval-compare before\results.json after\results.json compare.md` compares two runs case by case and separates real changes from run-to-run noise.
 - Eval cases can carry the app hint (`writtenIn`), and 8 new cases cover the rewrites reported in #16, #17, #18 and #25–#28.
 
+### Fixed
+- Quality check: runs that errored (rate limits, network failures) no longer count as failures. Comparisons leave them out, mark a case "not comparable" when errors leave it too few clean runs, and report how many runs errored on each side; pass rates in the report leave them out too.
+- Quality check: a rate limit no longer turns the rest of the run into errors. The runner waits out short limits (up to 20 minutes, 3 times per call) and retries the same run; when the day's allowance is gone it stops cleanly, keeps what finished, and says which cases didn't run in `progress.txt` and the report.
+- Quality check: a judged run the judge couldn't grade is now an error instead of a pass.
+
 ### Removed
 - The phrase list that flagged rewrites written in the AI's voice. It only caught wordings we had thought of; the judge checks this now.
 

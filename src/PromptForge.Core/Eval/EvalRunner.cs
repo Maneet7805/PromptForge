@@ -40,7 +40,7 @@ public sealed record JudgeVerdict(bool AnsweredInsteadOfRewriting, bool Invented
     bool WrittenAsReply = false, bool AddedRequests = false, string AddedExamples = "");
 
 /// <summary>How a run of the quality check is set up, for the report header.</summary>
-public sealed record EvalRunInfo(string ModelLabel, string? JudgeLabel = null, bool JudgeIndependent = false, string? InstructionsLabel = null);
+public sealed record EvalRunInfo(string ModelLabel, string? JudgeLabel = null, bool JudgeIndependent = false, string? InstructionsLabel = null, string? StoppedEarly = null);
 
 public sealed record EvalCaseResult
 {
@@ -58,8 +58,22 @@ public sealed record EvalCaseResult
 /// (dropped details, leftover markers, placeholders, filler, over-expansion) plus an optional
 /// LLM judge for things code can't see (did it answer instead of rewrite? invent facts?).
 /// </summary>
-public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient client)
+public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient client, Func<TimeSpan, CancellationToken, Task>? delay = null)
 {
+    private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? Task.Delay;
+
+    /// <summary>Longest "retry after" the runner waits out. Anything longer means the day's allowance is gone.</summary>
+    public static readonly TimeSpan MaxRateLimitWait = TimeSpan.FromMinutes(20);
+
+    /// <summary>Wait used when a rate-limited provider doesn't say how long to wait.</summary>
+    public static readonly TimeSpan DefaultRateLimitWait = TimeSpan.FromSeconds(60);
+
+    /// <summary>Waits per call before the runner gives up and stops the whole run.</summary>
+    public const int MaxRateLimitRetries = 3;
+
+    /// <summary>Why the last run stopped before finishing every case, or null if it finished.</summary>
+    public string? StoppedEarly { get; private set; }
+
     /// <summary>Runs per case when the caller doesn't say: enough to tell a real change from run-to-run noise.</summary>
     public const int DefaultRepeat = 3;
 
@@ -84,47 +98,111 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         OptimizerOptions? options = null)
     {
         options ??= new OptimizerOptions();
+        StoppedEarly = null;
         var results = new List<EvalCaseResult>();
-        foreach (var evalCase in cases)
+        try
         {
-            var runs = RunsFor(evalCase, repeat);
-            for (var run = 1; run <= runs; run++)
+            foreach (var evalCase in cases)
             {
-                ct.ThrowIfCancellationRequested();
-                progress?.Report($"{evalCase.Id} (run {run} of {runs})");
-                EvalCaseResult caseResult;
-                try
+                var runs = RunsFor(evalCase, repeat);
+                for (var run = 1; run <= runs; run++)
                 {
-                    var result = await optimizer.OptimizeAsync(
-                        new OptimizeRequest { Text = evalCase.Draft, Mode = evalCase.Mode, WrittenIn = evalCase.WrittenIn }, endpoints, options, ct);
-                    var failures = Grade(evalCase, result);
-                    JudgeVerdict? verdict = null;
-                    if (judge is not null && !result.IsUnchanged)
-                    {
-                        await Task.Delay(pause / 2, ct);
-                        verdict = await JudgeAsync(judge, evalCase.Draft, result.Prompt, ct);
-                        if (verdict is not null)
-                        {
-                            if (verdict.AnsweredInsteadOfRewriting) failures.Add("judge: answered the draft instead of rewriting it");
-                            if (verdict.InventedDetails) failures.Add($"judge: invented details ({verdict.InventedExamples})");
-                            if (verdict.DroppedRequirements) failures.Add($"judge: dropped a stated requirement ({verdict.DroppedExamples})");
-                            if (verdict.ChangedIntent) failures.Add("judge: changed what kind of request it is");
-                            if (verdict.WrittenAsReply) failures.Add("judge: written as the AI's reply, not the user's message");
-                            if (verdict.AddedRequests) failures.Add($"judge: added requests the draft didn't make ({verdict.AddedExamples})");
-                        }
-                    }
-                    caseResult = new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Judge = verdict };
+                    ct.ThrowIfCancellationRequested();
+                    var label = $"{evalCase.Id} (run {run} of {runs})";
+                    progress?.Report(label);
+                    results.Add(await RunOnceAsync(evalCase, run, label, endpoints, judge, pause, options, progress, ct));
+                    await _delay(pause, ct);
                 }
-                catch (Exception ex) when (ex is OptimizeException or LlmException)
-                {
-                    caseResult = new EvalCaseResult { Case = evalCase, Run = run, Error = ex.Message };
-                }
-                results.Add(caseResult);
-                await Task.Delay(pause, ct);
             }
+        }
+        catch (RateLimitStop stop)
+        {
+            // The run that hit the limit isn't recorded: it has no result, and recording it as an
+            // error would only add noise. Everything finished so far is kept.
+            var runsDone = results.GroupBy(r => r.Case.Id).ToDictionary(g => g.Key, g => g.Count());
+            var unfinished = cases.Count(c => runsDone.GetValueOrDefault(c.Id) < RunsFor(c, repeat));
+            StoppedEarly = $"{stop.Message} Stopped after {results.Count} runs; {unfinished} of {cases.Count} cases didn't finish all their runs. Run them again on another day.";
+            progress?.Report("stopped: " + StoppedEarly);
         }
         return results;
     }
+
+    private async Task<EvalCaseResult> RunOnceAsync(EvalCase evalCase, int run, string label, IReadOnlyList<LlmEndpoint> endpoints,
+        LlmEndpoint? judge, TimeSpan pause, OptimizerOptions options, IProgress<string>? progress, CancellationToken ct)
+    {
+        OptimizeResult result;
+        try
+        {
+            result = await WaitOutRateLimitsAsync(
+                () => optimizer.OptimizeAsync(new OptimizeRequest { Text = evalCase.Draft, Mode = evalCase.Mode, WrittenIn = evalCase.WrittenIn }, endpoints, options, ct),
+                label, "the model", progress, ct);
+        }
+        catch (Exception ex) when (ex is OptimizeException or LlmException)
+        {
+            return new EvalCaseResult { Case = evalCase, Run = run, Error = ex.Message };
+        }
+
+        var failures = Grade(evalCase, result);
+        JudgeVerdict? verdict = null;
+        if (judge is not null && !result.IsUnchanged)
+        {
+            await _delay(pause / 2, ct);
+            string? judgeError;
+            try
+            {
+                (verdict, judgeError) = await WaitOutRateLimitsAsync(() => JudgeAsync(judge, evalCase.Draft, result.Prompt, ct), label, "the judge", progress, ct);
+            }
+            catch (LlmException ex)
+            {
+                judgeError = ex.Message;
+            }
+            // A judged run without a verdict would pass checks it never had: count it as an error, not a pass.
+            if (verdict is null)
+                return new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Error = "judge gave no verdict: " + judgeError };
+            if (verdict.AnsweredInsteadOfRewriting) failures.Add("judge: answered the draft instead of rewriting it");
+            if (verdict.InventedDetails) failures.Add($"judge: invented details ({verdict.InventedExamples})");
+            if (verdict.DroppedRequirements) failures.Add($"judge: dropped a stated requirement ({verdict.DroppedExamples})");
+            if (verdict.ChangedIntent) failures.Add("judge: changed what kind of request it is");
+            if (verdict.WrittenAsReply) failures.Add("judge: written as the AI's reply, not the user's message");
+            if (verdict.AddedRequests) failures.Add($"judge: added requests the draft didn't make ({verdict.AddedExamples})");
+        }
+        return new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Judge = verdict };
+    }
+
+    /// <summary>
+    /// Retries a call that hit a rate limit after the provider's "retry after" (or a minute when it
+    /// doesn't say). A wait longer than <see cref="MaxRateLimitWait"/>, or still limited after
+    /// <see cref="MaxRateLimitRetries"/> waits, means the allowance is gone: the whole run stops.
+    /// </summary>
+    private async Task<T> WaitOutRateLimitsAsync<T>(Func<Task<T>> call, string label, string who, IProgress<string>? progress, CancellationToken ct)
+    {
+        for (var waits = 0; ; waits++)
+        {
+            try
+            {
+                return await call();
+            }
+            catch (Exception ex) when (RateLimitOf(ex) is { } limit)
+            {
+                var wait = limit.RetryAfter ?? DefaultRateLimitWait;
+                if (wait > MaxRateLimitWait)
+                    throw new RateLimitStop($"{Capitalise(who)} hit its rate limit and asked to wait {Minutes(wait)}, which means the day's allowance is used up.");
+                if (waits >= MaxRateLimitRetries)
+                    throw new RateLimitStop($"{Capitalise(who)} was still rate-limited after {MaxRateLimitRetries} waits.");
+                progress?.Report($"{label}: {who} hit its rate limit, waiting {Math.Ceiling(wait.TotalSeconds)} s");
+                await _delay(wait + TimeSpan.FromSeconds(1), ct);
+            }
+        }
+    }
+
+    private static LlmException? RateLimitOf(Exception ex) =>
+        (ex as LlmException ?? ex.InnerException as LlmException) is { Kind: LlmErrorKind.RateLimit } limit ? limit : null;
+
+    private static string Capitalise(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private static string Minutes(TimeSpan t) => t.TotalMinutes >= 1 ? $"{Math.Ceiling(t.TotalMinutes)} min" : $"{Math.Ceiling(t.TotalSeconds)} s";
+
+    private sealed class RateLimitStop(string message) : Exception(message);
 
     /// <summary>Runs for one case: the run's repeat count, or the case's own minimum if higher.</summary>
     public static int RunsFor(EvalCase evalCase, int repeat) => Math.Max(1, Math.Max(evalCase.Repeat, repeat));
@@ -166,7 +244,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         return failures;
     }
 
-    private async Task<JudgeVerdict?> JudgeAsync(LlmEndpoint judge, string draft, string rewrite, CancellationToken ct)
+    private async Task<(JudgeVerdict? Verdict, string? Error)> JudgeAsync(LlmEndpoint judge, string draft, string rewrite, CancellationToken ct)
     {
         const string instructions = """
             You grade a prompt-rewriting tool. It received a user's draft prompt and produced a rewrite meant to be sent to an AI assistant.
@@ -194,19 +272,23 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             var response = await client.CompleteAsync(judge, messages, new ChatOptions { MaxTokens = 1500, Temperature = 0 }, ct);
             var start = response.Content.IndexOf('{');
             var end = response.Content.LastIndexOf('}');
-            if (start < 0 || end <= start) return null;
+            if (start < 0 || end <= start) return (null, "the reply wasn't JSON");
             using var doc = JsonDocument.Parse(response.Content[start..(end + 1)]);
             var r = doc.RootElement;
             bool B(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
             string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
-            return new JudgeVerdict(B("answered_instead_of_rewriting"), B("invented_details"), S("invented_examples"),
+            return (new JudgeVerdict(B("answered_instead_of_rewriting"), B("invented_details"), S("invented_examples"),
                 B("clearer_than_original"), B("appropriate_length"), S("comment"),
                 B("dropped_requirements"), S("dropped_examples"), B("changed_intent"),
-                B("written_as_reply"), B("added_requests"), S("added_examples"));
+                B("written_as_reply"), B("added_requests"), S("added_examples")), null);
         }
-        catch (Exception ex) when (ex is LlmException or JsonException)
+        catch (LlmException ex) when (ex.Kind != LlmErrorKind.RateLimit)
         {
-            return null;
+            return (null, ex.Message);
+        }
+        catch (JsonException ex)
+        {
+            return (null, "the reply wasn't valid JSON: " + ex.Message);
         }
     }
 
@@ -224,6 +306,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         sb.AppendLine();
         sb.AppendLine(inv, $"Run {DateTime.Now:yyyy-MM-dd HH:mm} · model {info.ModelLabel}");
         if (info.InstructionsLabel is not null) sb.AppendLine(inv, $"\nSystem prompt: {info.InstructionsLabel}");
+        if (info.StoppedEarly is not null) sb.AppendLine(inv, $"\n**Stopped early.** {info.StoppedEarly}");
         if (info.JudgeLabel is not null)
             sb.AppendLine(inv, $"\nJudge: {info.JudgeLabel} ({(info.JudgeIndependent ? "independent provider" : "same provider as the optimiser, so not independent; set a judge in Settings → Data")})");
         sb.AppendLine();
@@ -231,11 +314,12 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         sb.AppendLine("| Metric | Value |");
         sb.AppendLine("| --- | --- |");
         sb.AppendLine(inv, $"| Cases / runs | {byCase.Count} / {results.Count} |");
-        sb.AppendLine(inv, $"| Runs that passed all checks | {results.Count(r => r.Passed)} ({100.0 * results.Count(r => r.Passed) / Math.Max(1, results.Count):0}%) |");
-        sb.AppendLine(inv, $"| Cases that passed every run | {byCase.Count(c => c.Passed == c.Runs)} |");
-        sb.AppendLine(inv, $"| Cases that failed every run | {byCase.Count(c => c.Passed == 0)} |");
+        var clean = results.Count(r => r.Error is null);
+        sb.AppendLine(inv, $"| Runs that passed all checks (errored runs left out) | {results.Count(r => r.Passed)}/{clean} ({100.0 * results.Count(r => r.Passed) / Math.Max(1, clean):0}%) |");
+        sb.AppendLine(inv, $"| Cases that passed every run | {byCase.Count(c => c.Runs > 0 && c.Passed == c.Runs)} |");
+        sb.AppendLine(inv, $"| Cases that failed every run | {byCase.Count(c => c.Runs > 0 && c.Passed == 0)} |");
         sb.AppendLine(inv, $"| Cases with mixed results | {byCase.Count(c => c.Passed > 0 && c.Passed < c.Runs)} |");
-        sb.AppendLine(inv, $"| Errors | {results.Count(r => r.Error is not null)} |");
+        sb.AppendLine(inv, $"| Errors (rate limits, network, no judge verdict) | {results.Count(r => r.Error is not null)} |");
         var judged = ok.Where(r => r.Judge is not null).ToList();
         if (judged.Count > 0)
         {
@@ -255,12 +339,12 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         sb.AppendLine();
         sb.AppendLine("## Pass rate by case");
         sb.AppendLine();
-        sb.AppendLine("Lowest first. With repeated runs, a change between two versions is real only if it shows in most runs of a case, not one.");
+        sb.AppendLine("Lowest first. Errored runs are left out of the pass rate. With repeated runs, a change between two versions is real only if it shows in most runs of a case, not one.");
         sb.AppendLine();
         sb.AppendLine("| Case | Category | Passed | Most common problem |");
         sb.AppendLine("| --- | --- | --- | --- |");
         foreach (var c in byCase.OrderBy(c => c.Rate).ThenBy(c => c.Id, StringComparer.Ordinal))
-            sb.AppendLine(inv, $"| {Escape(c.Id)} | {Escape(c.Category)} | {c.Passed}/{c.Runs} | {Escape(c.TopProblem ?? "")} |");
+            sb.AppendLine(inv, $"| {Escape(c.Id)} | {Escape(c.Category)} | {c.Passed}/{c.Runs}{(c.Errors > 0 ? $" ({c.Errors} errored)" : "")} | {Escape(c.TopProblem ?? "")} |");
 
         var repeated = ok.GroupBy(r => r.Case.Id).Where(g => g.Count() > 1).ToList();
         if (repeated.Count > 0)
@@ -320,7 +404,8 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         return sb.ToString();
     }
 
-    public sealed record CaseRate(string Id, string Category, int Passed, int Runs, string? TopProblem)
+    /// <summary>Pass rate over the runs that got a result; <see cref="Errors"/> counts the ones that didn't.</summary>
+    public sealed record CaseRate(string Id, string Category, int Passed, int Runs, string? TopProblem, int Errors = 0)
     {
         public double Rate => Runs == 0 ? 0 : Passed / (double)Runs;
     }
@@ -331,9 +416,10 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             g.Key,
             g.First().Case.Category,
             g.Count(r => r.Passed),
-            g.Count(),
+            g.Count(r => r.Error is null),
             g.SelectMany(r => r.Error is null ? r.Failures.Select(ProblemKind) : ["error"])
-                .GroupBy(p => p).OrderByDescending(p => p.Count()).ThenBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key).FirstOrDefault()))
+                .GroupBy(p => p).OrderByDescending(p => p.Count()).ThenBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key).FirstOrDefault(),
+            g.Count(r => r.Error is not null)))
             .ToList();
 
     // "judge: invented details (Python 3.12)" and "judge: invented details (React)" are the same kind of problem.
