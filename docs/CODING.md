@@ -14,6 +14,12 @@ Conventions for this codebase. Short on purpose: if the code and this file disag
 - Nullable is on. Don't silence it with `!` unless the line before proves the value exists.
 - Prefer `sealed` classes and records for data. Prefer clear names over comments; comment why, not what.
 - Add new enum values at the end when something maps onto them by index (`TaskType` is mapped from a dropdown).
+- Names: `PascalCase` for types, methods and properties; `camelCase` for locals and parameters; `_camelCase` for private fields; `Async` suffix on methods that return a `Task`.
+- A method does one thing. Past about 50 lines or 3 levels of nesting, split it. A file owns one feature.
+- No magic numbers: use a named constant. No commented-out code: delete it, git keeps history.
+- `TODO` comments say who and when: `// TODO(name, 18 Oct 2026): what`. A bare `// TODO` is not allowed. Prefer opening an issue.
+- Add an XML `<summary>` to public Core types and methods only when the name doesn't say what they do or there's a catch (units, thread safety, what it throws).
+- Never turn off an analyzer or compiler warning without a comment saying why.
 
 ## Errors
 
@@ -26,6 +32,8 @@ Conventions for this codebase. Short on purpose: if the code and this file disag
 - `Log` records events, timings and error types. Never log prompt text, transcripts, keys or anything derived from them, including in exception messages you build yourself.
 - API keys are stored with DPAPI (`DpapiSecretStore`). Never write a key to settings JSON, logs, test data or a commit. Tests use fake keys.
 - No auto-submit (no Enter after pasting) and no keystrokes to terminals.
+- Validate at the edge (model replies, files, clipboard text, settings on disk), then trust the value downstream.
+- Don't run a destructive command (`rm -rf`, force-push, deleting a release or tag) without checking with the owner first.
 
 ## Tests
 
@@ -33,6 +41,20 @@ Conventions for this codebase. Short on purpose: if the code and this file disag
 - HTTP is faked with an `HttpMessageHandler` subclass; don't call real providers from tests.
 - Every bug fix gets a test that fails without the fix. Check by temporarily reverting the fix.
 - Run `dotnet test tests/PromptForge.Core.Tests` before committing. UI and Win32 changes can't be unit-tested here: say in the PR which apps you tried (Notepad, a browser chat and Word cover most cases).
+
+## Debugging
+
+1. Reproduce it. If you can't, write down what you tried.
+2. Reduce it to the smallest case that still fails.
+3. Write down your guess at the cause before reading the suspect code.
+4. Confirm the guess with a test, a log of the type or timing (never content), or a breakpoint. Don't assume.
+5. Fix it, and add a test that fails before the fix and passes after.
+6. Stuck for an hour? Stop, write down what you know, and ask the owner.
+
+## Performance
+
+- Make it correct first. Measure before optimising: add timing, don't guess.
+- For rewrites, the slow part is almost always the model call and its token count, not local code. Check prompt size and cached tokens first.
 
 ## Changing the rewriting rules
 
