@@ -6,3 +6,7 @@ publish/
 dist/
 eval/results/
 *.log
+
+# Claude Code: private, per-machine
+CLAUDE.local.md
+.claude/settings.local.json
