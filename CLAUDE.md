@@ -36,6 +36,41 @@ publish\PromptForge.exe --portable                # try a build without touching
 - Build only things that hold in every situation and belong in the product. No one-off fix for a single reported draft: prefer general rules over phrase lists.
 - Keep the user's detail exactly: don't invent facts, numbers or requirements in rewrites.
 
+## Working rules
+
+- Non-trivial change: say what you'll change and why in two or three short bullets, then wait for a go-ahead. Spans more than 3 files, or touches settings or a data format: write a plan first.
+- Never rewrite working code that wasn't part of the ask. If you spot a problem outside the ask, tell me; don't fix it. Suggest an issue.
+- Before pushing to an existing branch, check its PR is still open (`gh pr view <branch> --json state`). A merged PR's branch is deleted, so a push there goes nowhere: start a fresh branch.
+- Never claim "done" or "fixed" without running the tests. Say what you ran and what you did not.
+
+## How to report back
+
+When a task ends, write the report below, not an essay. The reader skims it, so plain words and short lines matter more than detail.
+
+Rules for every report:
+- Plain, simple English. Bullets only. At most 5 bullets per section, at most 15 words per bullet, no nested bullets.
+- No jargon without a few words explaining it. No pasted logs: quote at most one line of an error.
+- Never retell the steps you took. Only say the result.
+- No apologies, praise or warm-up lines.
+
+Sections, in this order. Skip a section only where noted:
+1. **Problem** (skip if none). One line, first. Use it when something failed, is half done, or is risky. Never open with "Done" if it isn't.
+2. **Done**. What changed, as the user would see it. Give the PR or commit number instead of a file list. No PR yet: list the file names, one line each.
+3. **Checked**. Two lines: `Tested:` what you ran and the result. `Not tested:` what you could not or did not check. Write "Not tested: nothing" only if it's true.
+4. **You need to do**. Anything only the user can do: merge, run something on their machine, supply a key or a decision. Put what blocks the work first. If there is nothing, write "Nothing." Never skip this section.
+5. **Confirm next**. Up to 3 numbered choices for the next task, your recommended one first, each with a few words on why. Say what it costs if it uses free-tier limits, an hour of runtime or another person's time. Don't start the next task before the user picks.
+6. **Heads up** (skip if none). Risks, things you noticed but didn't touch, open questions. Start each with `[Certain]`, `[Likely]` or `[Guessing]`.
+
+Special cases:
+- A tiny task (one small edit, a rename): one line starting "Done:", plus anything under "You need to do". No other sections.
+- A question, not a task: answer in a few short bullets. This format does not apply.
+- Blocked and can't finish: Problem, what you tried in one line, then "You need to do" with the exact thing that unblocks you.
+- You changed something the user didn't ask for: say so under Done.
+- The work is a long list (many files, many issues): summarise by group, never list everything.
+- More than one question for the user: number them and put them all in "Confirm next", not spread across sections.
+
+Collaborators who prefer a different style can override this in their own `CLAUDE.local.md`.
+
 ## Workflow
 
 Follow `CONTRIBUTING.md` ("Working on an issue"): open issue, `/claim`, branch `<type>/<issue#>-<slug>`, draft PR with `Fixes #<issue>`, Conventional Commits, CHANGELOG line under `Unreleased`. Rename any auto-generated branch (`claude/...`) before pushing. Slash commands: `/whats-next`, `/start-issue <number>`.
