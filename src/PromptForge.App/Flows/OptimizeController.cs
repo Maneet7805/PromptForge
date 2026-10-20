@@ -182,6 +182,7 @@ internal sealed class OptimizeController(AppServices services)
             Log.Warn($"optimise failed failure={ex.Failure} {llm.LogSummary} mode={mode} chars={text.Length}");
             throw;
         }
+        result = RequirementsAppender.Apply(result, settings.StandingRequirements);
         Log.Info($"optimised task={result.TaskType} verdict={result.Verdict} model={result.Model} ms={result.Elapsed.TotalMilliseconds:0} " +
                  $"tokens={result.PromptTokens}/{result.CachedTokens}c/{result.CompletionTokens} attempts={result.Attempts} warnings={result.Warnings.Count} " +
                  $"repair={result.Repair} missing={result.MissingBeforeRepair}->{result.MissingAfterRepair}" +

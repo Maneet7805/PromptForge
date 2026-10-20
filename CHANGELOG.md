@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- Settings → Requirements: write your own standing requirements for each kind of task (for example, Coding: "find the root cause, follow existing conventions, no workarounds"). They are added word for word to the end of every rewrite of that kind, are never sent to the model, and are skipped when a rewrite comes back unchanged (#36).
+
 ### Changed
 - The log now records why a rewrite failed: the error kind, the provider's token limit and requested size when it reports them, the mode and the draft length. Never the prompt or the provider's message. This is so "too long for the free-tier limit" errors can be diagnosed (#101).
 - The log line for each rewrite now also says what the repair step did (restored, no improvement, failed, off), how many exact details were missing before and after, and why any failed call led to a retry or the backup model. Error kinds, limits and counts only (#104).
