@@ -16,6 +16,9 @@ internal enum ReviewAction
 
 internal sealed record ReviewDecision(ReviewAction Action, string Text);
 
+/// <summary>What the user typed in the details box, with the questions it may be answering.</summary>
+internal sealed record ReviewAnswers(string Text, IReadOnlyList<string> Questions);
+
 internal sealed record ReviewContext
 {
     public required string Original { get; init; }
@@ -24,8 +27,8 @@ internal sealed record ReviewContext
     public OptimizeMode InitialMode { get; init; } = OptimizeMode.Standard;
     public TaskType InitialTask { get; init; } = TaskType.Auto;
 
-    /// <summary>Runs the optimiser with the chosen mode, task type and any extra details the user typed.</summary>
-    public required Func<OptimizeMode, TaskType, string?, CancellationToken, Task<OptimizeResult>> Run { get; init; }
+    /// <summary>Runs the optimiser with the chosen mode, task type and the user's answers, if any.</summary>
+    public required Func<OptimizeMode, TaskType, ReviewAnswers?, CancellationToken, Task<OptimizeResult>> Run { get; init; }
 
     /// <summary>Shown immediately instead of calling the model (e.g. the text is PromptForge's own last output).</summary>
     public OptimizeResult? Preloaded { get; init; }
@@ -43,6 +46,10 @@ internal sealed class ReviewForm : Form
     private readonly TaskCompletionSource<ReviewDecision> _decision = new();
     private CancellationTokenSource? _runCts;
     private OptimizeResult? _result;
+
+    // Every question shown in this window. The details box keeps its text across re-runs, so an
+    // answer can refer to a question from any earlier run, not only the latest one.
+    private readonly List<string> _askedQuestions = [];
     private bool _decided;
 
     private readonly Label _status = new() { AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
@@ -175,11 +182,11 @@ internal sealed class ReviewForm : Form
         var cts = _runCts = new CancellationTokenSource();
         var mode = Enum.Parse<OptimizeMode>((string)_mode.SelectedItem!);
         var task = (TaskType)_task.SelectedIndex;
-        var details = string.IsNullOrWhiteSpace(_details.Text) ? null : _details.Text.Trim();
+        var answers = string.IsNullOrWhiteSpace(_details.Text) ? null : new ReviewAnswers(_details.Text.Trim(), [.. _askedQuestions]);
         SetWorking(true);
         try
         {
-            var result = await _ctx.Run(mode, task, details, cts.Token);
+            var result = await _ctx.Run(mode, task, answers, cts.Token);
             if (cts.IsCancellationRequested || IsDisposed) return;
             ShowResult(result, null);
         }
@@ -217,6 +224,8 @@ internal sealed class ReviewForm : Form
     private void ShowResult(OptimizeResult result, string? note)
     {
         _result = result;
+        foreach (var question in result.Questions)
+            if (!_askedQuestions.Contains(question)) _askedQuestions.Add(question);
         _improved.Text = ToWindowsNewlines(result.Prompt);
         _undoEdits.Enabled = false;
         _accept.Enabled = _copy.Enabled = true;
