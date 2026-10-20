@@ -63,6 +63,12 @@ public sealed class AppSettings
     /// <summary>Optional standing background, e.g. "Year 3 CS student; I mostly use C#, Java and Python."</summary>
     public string PersonalContext { get; set; } = "";
 
+    /// <summary>
+    /// The user's own requirements per task type, keyed by <see cref="TaskType"/> name (e.g. "Coding").
+    /// Added word for word to rewrites of that type; never sent to the model.
+    /// </summary>
+    public Dictionary<string, string> StandingRequirements { get; set; } = [];
+
     /// <summary>Tell the model which kind of app the draft came from (e.g. "Claude (browser)").</summary>
     public bool SendAppHint { get; set; } = true;
 
@@ -100,6 +106,7 @@ public static class SettingsStore
             settings.Hotkeys ??= new HotkeySettings();
             settings.Voice ??= new VoiceSettings();
             settings.Judge ??= new AppSettings().Judge;
+            settings.StandingRequirements ??= [];
             return settings;
         }
         catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException)

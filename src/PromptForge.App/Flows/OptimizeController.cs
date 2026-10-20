@@ -169,6 +169,7 @@ internal sealed class OptimizeController(AppServices services)
             WrittenIn = settings.SendAppHint ? appLabel : null,
         };
         var result = await services.Optimizer.OptimizeAsync(request, endpoints, services.OptimizerOptions, ct);
+        result = RequirementsAppender.Apply(result, settings.StandingRequirements);
         Log.Info($"optimised task={result.TaskType} verdict={result.Verdict} model={result.Model} ms={result.Elapsed.TotalMilliseconds:0} " +
                  $"tokens={result.PromptTokens}/{result.CachedTokens}c/{result.CompletionTokens} attempts={result.Attempts} warnings={result.Warnings.Count}");
         return details is null ? result : result with { Original = text };

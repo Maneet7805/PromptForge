@@ -27,6 +27,12 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _repair = new() { Text = "If exact details (paths, numbers, names) get dropped, ask the model to fix it (one extra call)", AutoSize = true };
     private readonly TextBox _personal = new() { Multiline = true, Height = 70, Width = 560, ScrollBars = ScrollBars.Vertical, PlaceholderText = "e.g. Year 3 computer science student. I mostly use C#, Java and Python on Windows." };
 
+    // Requirements
+    private readonly ComboBox _reqTask = Combo(Enum.GetNames<TaskType>().Where(n => n != nameof(TaskType.Auto)).ToArray());
+    private readonly TextBox _reqText = new() { Multiline = true, Height = 200, Width = 560, ScrollBars = ScrollBars.Vertical, MaxLength = RequirementsAppender.MaxLength };
+    private Dictionary<string, string> _reqEdits = [];
+    private string? _reqShown;
+
     // Model
     private readonly ComboBox _primaryProvider = ProviderCombo();
     private readonly TextBox _primaryModel = new() { Width = 260 };
@@ -74,6 +80,7 @@ internal sealed class SettingsForm : Form
 
         var tabs = new TabControl { Dock = DockStyle.Fill };
         tabs.TabPages.Add(Page("General", BuildGeneral()));
+        tabs.TabPages.Add(Page("Requirements", BuildRequirements()));
         tabs.TabPages.Add(Page("Model", BuildModel()));
         tabs.TabPages.Add(Page("Shortcuts", BuildHotkeys()));
         tabs.TabPages.Add(Page("Voice", BuildVoice()));
@@ -104,6 +111,30 @@ internal sealed class SettingsForm : Form
         _review, _startup, _appHint, _repair, _updates,
         new Label { Text = "About me (optional, used only when relevant; never used to invent task details):", AutoSize = true, Padding = new Padding(0, 10, 0, 0) },
         _personal);
+
+    private Control BuildRequirements()
+    {
+        _reqTask.SelectedIndexChanged += (_, _) => ShowRequirements();
+        return Stack(
+            Heading("Your standing requirements, per kind of task"),
+            Hint("Written once, added word for word to the end of every rewrite of that kind. PromptForge never changes this text and never sends it to the model. Rewrites that come back unchanged get nothing added."),
+            Row(new Label { Text = "Task type", AutoSize = true, Padding = new Padding(0, 4, 0, 0) }, _reqTask),
+            _reqText,
+            Hint("For example, Coding: find the root cause, follow existing conventions, no workarounds, check for regressions. Coding agents also read the same text from a repo's CLAUDE.md or AGENTS.md."));
+    }
+
+    /// <summary>Keeps the text box and the in-memory edits in step with the chosen task type.</summary>
+    private void ShowRequirements()
+    {
+        StoreRequirements();
+        _reqShown = (string?)_reqTask.SelectedItem;
+        _reqText.Text = _reqShown is not null && _reqEdits.TryGetValue(_reqShown, out var text) ? text : "";
+    }
+
+    private void StoreRequirements()
+    {
+        if (_reqShown is not null) _reqEdits[_reqShown] = _reqText.Text.Trim();
+    }
 
     private Control BuildModel()
     {
@@ -211,6 +242,11 @@ internal sealed class SettingsForm : Form
         _updates.Checked = _s.CheckForUpdates;
         _personal.Text = _s.PersonalContext;
 
+        _reqEdits = new Dictionary<string, string>(_s.StandingRequirements);
+        _reqShown = null;
+        _reqTask.SelectedIndex = 0;
+        ShowRequirements();
+
         _primaryProvider.SelectedItem = ProviderPresets.Get(_s.Primary.Provider).Id;
         _primaryModel.Text = _s.Primary.Model;
         _primaryUrl.Text = _s.Primary.BaseUrl ?? "";
@@ -260,6 +296,8 @@ internal sealed class SettingsForm : Form
         _s.RepairDroppedDetails = _repair.Checked;
         _s.CheckForUpdates = _updates.Checked;
         _s.PersonalContext = _personal.Text.Trim();
+        StoreRequirements();
+        _s.StandingRequirements = _reqEdits.Where(kv => kv.Value.Length > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
         _s.Primary = new EndpointSettings { Provider = (string)_primaryProvider.SelectedItem!, Model = _primaryModel.Text.Trim(), BaseUrl = NullIfEmpty(_primaryUrl.Text) };
         _s.Fallback = new EndpointSettings { Provider = (string)_fallbackProvider.SelectedItem!, Model = _fallbackModel.Text.Trim(), BaseUrl = NullIfEmpty(_fallbackUrl.Text), Enabled = _fallbackOn.Checked };
         _s.Judge = new EndpointSettings
