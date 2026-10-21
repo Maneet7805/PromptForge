@@ -48,6 +48,36 @@ This is how a change to the system prompt gets accepted or rejected.
 
 Only the system prompt changes between the two runs; the rest of the pipeline (masking, repair pass, checks) is the current build's.
 
+Both sides must be graded by the same judge. When the judge's instructions change, re-judge the older run (below) before comparing, or the comparison measures the judge, not the rules.
+
+## Re-judge a saved run
+
+`--rejudge` grades the rewrites saved in a run's `results.json` again, with this build's checks and judge. It doesn't call the optimiser, so it costs only judge calls (about one per run) and no Groq allowance.
+
+```
+& "$env:LOCALAPPDATA\Programs\PromptForge\PromptForge.exe" --rejudge eval\results\before\results.json eval\cases.json eval\results\before-rejudged | Out-Null
+```
+
+It writes `report.md` and `results.json` to the new folder, which must differ from the run's own folder. Runs whose case is no longer in `cases.json`, or whose draft has changed since, are left out and listed in the report. Runs saved before the draft was recorded in `results.json` are graded against today's drafts.
+
+## Check the judge against your own grades
+
+Grade some rewrites yourself, blind (without looking at the judge's verdict), in a CSV kept outside the repo:
+
+```
+id,run,added,left_out,changed_kind
+dns-basic,1,no,no,no
+drive-organise,2,no,yes,
+```
+
+Each answer is `yes` or `no`; leave it blank if you didn't grade that question. `added`: the rewrite added something you didn't mean (the judge's "added requests" or "invented details"). `left_out`: it dropped or under-delivered something you meant ("dropped a stated requirement" or "under-delivered"). `changed_kind`: it changed the kind of message ("changed the kind of request", "written as the AI's reply" or "answered instead of rewriting"). Then:
+
+```
+& "$env:LOCALAPPDATA\Programs\PromptForge\PromptForge.exe" --rejudge eval\results\before\results.json eval\cases.json eval\results\calibration-1 --grades D:\grades.csv | Out-Null
+```
+
+`calibration.md` shows, for each question, how often the judge agreed with you and which runs it got wrong. Change the judge's instructions (`JudgeInstructions` in `src/PromptForge.Core/Eval/EvalRunner.cs`) and re-judge until it mostly agrees; only then trust its numbers.
+
 To test a branch before it's released, download its exe from the pull request's CI run (**Checks → Build and test → Artifacts**) and run that exe instead of the installed one.
 
 ## Add a case
@@ -65,7 +95,7 @@ Every bad rewrite reported on GitHub becomes a case before the rules change. Use
 | `expectQuestions` | The draft is vague, so the review window should ask questions. |
 | `repeat` | Minimum runs for this case. |
 | `expect` | How deep the ideal rewrite goes: `Keep` (asks for nothing new: fix the wording only), `Clarify`, `SpellOut` (turn a stated goal into the steps or checks it requires), `Propose` (suggest a structure for an open-ended request) or `Write` (the draft is a brief for a prompt, #43). See `docs/design/rewrite-intent.md`. A `Keep` case fails if it's rewritten or grows past 1.6x. |
-| `mustCover` | What the ideal rewrite must cover, in plain words. Graded by the judge (#34), not by code. |
+| `mustCover` | What the ideal rewrite must cover, in plain words. The judge reads it, with `expect`, and flags the rewrite as under-delivered if an item is missing (#34). Not checked by code. |
 | `heldOut` | Left out of runs unless you pass `--include-held-out`. These cases are for the final measurement of a rules change, so the rules can't be tuned to them. Don't look at their results while changing rules. |
 | `source` | Where the case comes from: an issue, the user's own draft, or a pattern found in #32. |
 
