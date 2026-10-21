@@ -214,7 +214,7 @@ These are for #35, listed here so the review covers them:
 
 ## Decisions
 
-D1–D4 and D6 were decided on 2026-10-16, each as recommended; D5 is answered by #32. D7 (how write mode is chosen) is decided in #43: the user chooses a Write mode; PromptForge never guesses.
+D1–D4 and D6 were decided on 2026-10-16, each as recommended, and D8 on 2026-10-21; D5 is answered by #32. D7 (how write mode is chosen) is decided in #43: the user chooses a Write mode; PromptForge never guesses.
 
 **D1. Should every added line say where it came from?** The JSON gets an `added` list: each added line with the draft phrase naming the goal it serves. The app checks that the phrase is really in the draft, the judge grades whether the trace holds, and the review window can show "why this line".
 *Decided: yes.* It turns "never add what they didn't mean" from a hope into something the eval can check. Cost: [Guessing] about 10–20% more output tokens per rewrite.
@@ -231,6 +231,9 @@ D1–D4 and D6 were decided on 2026-10-16, each as recommended; D5 is answered b
 **D5. Are eight questions the right set?** *Answered by #32: keep all eight.* Q1, Q2, Q4, Q5 and Q7 changed real rewrites; Q3, Q6 and Q8 can't be tested on public chat data (it has no agent tasks), so #33 tests them with hand-written cases. The four gaps #32 found are now rules (Q1, Q2 and "Always").
 
 **D6. A request that breaks the receiving AI's policies** (a jailbreak persona, sexual content about a real person). *Decided 2026-10-16: rewrite it like anything else, adding and judging nothing;* the receiver applies its own policies. See the [findings](rewrite-intent-findings.md#decision-needed).
+
+**D8. Are "ask me first" fallbacks padding?** ("If you need more details, ask me first", "provide the report if you have it".) In the #34 calibration (2026-10-21), the maintainer graded 7 rewrites with such a line as not unwanted.
+*Decided 2026-10-21: keep the rule; they are padding.* The receiver can already see what it needs, and a missing detail is a question for the review window (Q4, Q5), not a line in the prompt. The judge keeps flagging them as added requests, and #35 is measured against that. The risk: a rewrite that leaves the line out may feel colder to a user who liked it; the review window's questions are the replacement.
 
 ## How it's measured
 
