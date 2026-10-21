@@ -11,6 +11,7 @@ namespace PromptForge.App;
 /// "PromptForge.exe --eval cases.json outDir [--judge] [--repeat N] [--system-prompt file] [--pause-seconds N]"
 /// and from the tray menu (Developer → Run quality check). Keys never leave this PC.
 /// "PromptForge.exe --eval-compare before\results.json after\results.json compare.md" compares two runs.
+/// "PromptForge.exe --rejudge run\results.json cases.json outDir [--grades grades.csv]" grades a saved run again (#34).
 /// </summary>
 internal static class EvalCommand
 {
@@ -18,7 +19,11 @@ internal static class EvalCommand
 
     private const string Usage =
         "Usage:\nPromptForge.exe --eval <cases.json> <output folder> [--judge] [--repeat N] [--system-prompt <file>] [--pause-seconds N] [--include-held-out]\n" +
-        "PromptForge.exe --eval-compare <before results.json> <after results.json> <output .md>";
+        "PromptForge.exe --eval-compare <before results.json> <after results.json> <output .md>\n" +
+        "PromptForge.exe --rejudge <results.json> <cases.json> <output folder> [--grades <grades.csv>] [--pause-seconds N]";
+
+    /// <summary>Judge calls only, so a shorter default wait than a full run, which also calls the optimiser.</summary>
+    private const double DefaultRejudgePauseSeconds = 4;
 
     public static int Run(string[] args)
     {
@@ -61,6 +66,66 @@ internal static class EvalCommand
         }
     }
 
+    public static int Rejudge(string[] args)
+    {
+        if (args.Length < 3)
+        {
+            MessageBox.Show(Usage, "PromptForge eval");
+            return 2;
+        }
+        var outDir = Path.GetFullPath(args[2]);
+        var savedDir = Path.GetDirectoryName(Path.GetFullPath(args[0]));
+        if (outDir.Equals(savedDir, StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("The re-judge would overwrite the run it grades. Choose a different output folder.", "PromptForge eval");
+            return 2;
+        }
+        var pause = TimeSpan.FromSeconds(Option(args, "--pause-seconds") is { } p && double.TryParse(p, out var s) ? s : DefaultRejudgePauseSeconds);
+        using var services = new AppServices();
+        return Task.Run(() => RejudgeAsync(services, args[0], args[1], outDir, Option(args, "--grades"), pause)).GetAwaiter().GetResult() ? 0 : 1;
+    }
+
+    /// <summary>Returns true on success. Writes report.md, results.json and, with grades, calibration.md.</summary>
+    private static async Task<bool> RejudgeAsync(AppServices services, string resultsPath, string casesPath, string outDir, string? gradesPath, TimeSpan pause)
+    {
+        Directory.CreateDirectory(outDir);
+        var progressFile = Path.Combine(outDir, "progress.txt");
+        void Progress(string msg) => File.WriteAllText(progressFile, $"{DateTime.Now:HH:mm:ss} {msg}");
+        try
+        {
+            var cases = EvalRunner.LoadCases(casesPath);
+            var saved = SavedResults.Load(resultsPath);
+            // Read the grades first, so a typo in the file fails before any judge calls are spent.
+            var grades = gradesPath is null ? null : JudgeCalibration.LoadGrades(gradesPath);
+            var endpoints = EndpointResolver.Resolve(services.Settings, services.Secrets);
+            var (judge, independent) = EndpointResolver.ResolveJudge(services.Settings, services.Secrets, endpoints);
+            var runner = new EvalRunner(services.Optimizer, services.Client);
+            Log.Info($"rejudge started runs={saved.Count} judge={judge.Label} independent={independent} grades={grades is not null}");
+            var results = await runner.RejudgeAsync(cases, saved, judge, pause, new Progress<string>(Progress), CancellationToken.None);
+
+            var model = saved.Select(r => r.Model).FirstOrDefault(m => !string.IsNullOrEmpty(m)) ?? "unknown";
+            var info = new EvalRunInfo(model, judge.Label, independent, StoppedEarly: runner.StoppedEarly,
+                RejudgedFrom: Path.GetFullPath(resultsPath), Skipped: runner.Skipped);
+            await File.WriteAllTextAsync(Path.Combine(outDir, "report.md"), EvalRunner.BuildReport(results, info));
+            await File.WriteAllTextAsync(Path.Combine(outDir, "results.json"), SavedResults.ToJson(results));
+            if (grades is not null)
+                await File.WriteAllTextAsync(Path.Combine(outDir, "calibration.md"), JudgeCalibration.Build(results, grades));
+
+            var errors = results.Count(r => r.Error is not null);
+            var summary = $"{(runner.StoppedEarly is null ? "done" : "stopped early")}: {results.Count(r => r.Passed)}/{results.Count - errors} runs passed, {errors} errored, {runner.Skipped.Count} left out"
+                + (runner.StoppedEarly is null ? "" : $". {runner.StoppedEarly}");
+            Progress(summary);
+            Log.Info("rejudge " + summary);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Progress($"failed: {ex.GetType().Name}: {ex.Message}");
+            Log.Error("rejudge failed", ex);
+            return false;
+        }
+    }
+
     private static string? Option(string[] args, string name)
     {
         var i = Array.IndexOf(args, name);
@@ -95,26 +160,7 @@ internal static class EvalCommand
 
             info = info with { StoppedEarly = runner.StoppedEarly };
             await File.WriteAllTextAsync(Path.Combine(outDir, "report.md"), EvalRunner.BuildReport(results, info));
-            await File.WriteAllTextAsync(Path.Combine(outDir, "results.json"), JsonSerializer.Serialize(results.Select(r => new
-            {
-                r.Case.Id,
-                r.Case.Category,
-                r.Run,
-                r.Passed,
-                r.Error,
-                r.Failures,
-                Output = r.Result?.Prompt,
-                Model = r.Result?.Model,
-                TaskType = r.Result?.TaskType.ToString(),
-                Verdict = r.Result?.Verdict.ToString(),
-                r.Result?.Questions,
-                r.Result?.Warnings,
-                Ms = r.Result?.Elapsed.TotalMilliseconds,
-                r.Result?.PromptTokens,
-                r.Result?.CachedTokens,
-                r.Result?.CompletionTokens,
-                r.Judge,
-            }), new JsonSerializerOptions { WriteIndented = true }));
+            await File.WriteAllTextAsync(Path.Combine(outDir, "results.json"), SavedResults.ToJson(results));
             var errors = results.Count(r => r.Error is not null);
             var summary = $"{(runner.StoppedEarly is null ? "done" : "stopped early")}: {results.Count(r => r.Passed)}/{results.Count - errors} runs passed, {errors} errored"
                 + (runner.StoppedEarly is null ? "" : $". {runner.StoppedEarly}");

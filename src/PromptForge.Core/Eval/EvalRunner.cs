@@ -66,10 +66,12 @@ public sealed record EvalCase
 
 public sealed record JudgeVerdict(bool AnsweredInsteadOfRewriting, bool InventedDetails, string InventedExamples, bool ClearerThanOriginal, bool AppropriateLength, string Comment,
     bool DroppedRequirements = false, string DroppedExamples = "", bool ChangedIntent = false,
-    bool WrittenAsReply = false, bool AddedRequests = false, string AddedExamples = "");
+    bool WrittenAsReply = false, bool AddedRequests = false, string AddedExamples = "",
+    bool UnderDelivered = false, string UnderDeliveredExamples = "");
 
 /// <summary>How a run of the quality check is set up, for the report header.</summary>
-public sealed record EvalRunInfo(string ModelLabel, string? JudgeLabel = null, bool JudgeIndependent = false, string? InstructionsLabel = null, string? StoppedEarly = null, int HeldOutSkipped = 0);
+public sealed record EvalRunInfo(string ModelLabel, string? JudgeLabel = null, bool JudgeIndependent = false, string? InstructionsLabel = null, string? StoppedEarly = null, int HeldOutSkipped = 0,
+    string? RejudgedFrom = null, IReadOnlyList<string>? Skipped = null);
 
 public sealed record EvalCaseResult
 {
@@ -156,6 +158,60 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         return results;
     }
 
+    /// <summary>Saved runs the last re-judge left out, with the reason (case gone, draft changed since).</summary>
+    public IReadOnlyList<string> Skipped { get; private set; } = [];
+
+    /// <summary>
+    /// Grades saved rewrites again with today's checks and judge, without calling the optimiser: for calibrating
+    /// the judge, and for grading an old baseline with the same judge as a new run. The optimiser endpoint isn't used.
+    /// </summary>
+    public async Task<IReadOnlyList<EvalCaseResult>> RejudgeAsync(
+        IReadOnlyList<EvalCase> cases,
+        IReadOnlyList<SavedRun> saved,
+        LlmEndpoint judge,
+        TimeSpan pause,
+        IProgress<string>? progress,
+        CancellationToken ct)
+    {
+        StoppedEarly = null;
+        var byId = cases.ToDictionary(c => c.Id);
+        var skipped = new List<string>();
+        var results = new List<EvalCaseResult>();
+        try
+        {
+            foreach (var run in saved)
+            {
+                ct.ThrowIfCancellationRequested();
+                var label = $"{run.Id} (run {run.Run})";
+                if (!byId.TryGetValue(run.Id, out var evalCase))
+                {
+                    skipped.Add($"{label}: not in the cases file");
+                    continue;
+                }
+                if (run.Draft is not null && run.Draft != evalCase.Draft)
+                {
+                    skipped.Add($"{label}: the case's draft changed since this run");
+                    continue;
+                }
+                if (SavedResults.ToResult(run, evalCase.Draft) is not { } result)
+                {
+                    results.Add(new EvalCaseResult { Case = evalCase, Run = run.Run, Error = run.Error ?? "the run has no rewrite" });
+                    continue;
+                }
+                progress?.Report(label);
+                results.Add(await GradeRunAsync(evalCase, run.Run, result, label, judge, pause, progress, ct));
+                await _delay(pause, ct);
+            }
+        }
+        catch (RateLimitStop stop)
+        {
+            StoppedEarly = $"{stop.Message} Stopped after {results.Count} of {saved.Count} saved runs. Re-judge again on another day.";
+            progress?.Report("stopped: " + StoppedEarly);
+        }
+        Skipped = skipped;
+        return results;
+    }
+
     private async Task<EvalCaseResult> RunOnceAsync(EvalCase evalCase, int run, string label, IReadOnlyList<LlmEndpoint> endpoints,
         LlmEndpoint? judge, TimeSpan pause, OptimizerOptions options, IProgress<string>? progress, CancellationToken ct)
     {
@@ -171,31 +227,44 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             return new EvalCaseResult { Case = evalCase, Run = run, Error = ex.Message };
         }
 
+        return await GradeRunAsync(evalCase, run, result, label, judge, pause, progress, ct);
+    }
+
+    /// <summary>Code checks plus, when a judge is given and the draft was changed, the judge's verdict.</summary>
+    private async Task<EvalCaseResult> GradeRunAsync(EvalCase evalCase, int run, OptimizeResult result, string label,
+        LlmEndpoint? judge, TimeSpan pause, IProgress<string>? progress, CancellationToken ct)
+    {
         var failures = Grade(evalCase, result);
-        JudgeVerdict? verdict = null;
-        if (judge is not null && !result.IsUnchanged)
+        if (judge is null || result.IsUnchanged)
+            return new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures };
+
+        await _delay(pause / 2, ct);
+        JudgeVerdict? verdict;
+        string? judgeError;
+        try
         {
-            await _delay(pause / 2, ct);
-            string? judgeError;
-            try
-            {
-                (verdict, judgeError) = await WaitOutRateLimitsAsync(() => JudgeAsync(judge, evalCase.Draft, result.Prompt, ct), label, "the judge", progress, ct);
-            }
-            catch (LlmException ex)
-            {
-                judgeError = ex.Message;
-            }
-            // A judged run without a verdict would pass checks it never had: count it as an error, not a pass.
-            if (verdict is null)
-                return new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Error = "judge gave no verdict: " + judgeError };
-            if (verdict.AnsweredInsteadOfRewriting) failures.Add("judge: answered the draft instead of rewriting it");
-            if (verdict.InventedDetails) failures.Add($"judge: invented details ({verdict.InventedExamples})");
-            if (verdict.DroppedRequirements) failures.Add($"judge: dropped a stated requirement ({verdict.DroppedExamples})");
-            if (verdict.ChangedIntent) failures.Add("judge: changed what kind of request it is");
-            if (verdict.WrittenAsReply) failures.Add("judge: written as the AI's reply, not the user's message");
-            if (verdict.AddedRequests) failures.Add($"judge: added requests the draft didn't make ({verdict.AddedExamples})");
+            (verdict, judgeError) = await WaitOutRateLimitsAsync(() => JudgeAsync(judge, evalCase, result.Prompt, ct), label, "the judge", progress, ct);
         }
+        catch (LlmException ex)
+        {
+            (verdict, judgeError) = (null, ex.Message);
+        }
+        // A judged run without a verdict would pass checks it never had: count it as an error, not a pass.
+        if (verdict is null)
+            return new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Error = "judge gave no verdict: " + judgeError };
+        failures.AddRange(JudgeFailures(verdict));
         return new EvalCaseResult { Case = evalCase, Run = run, Result = result, Failures = failures, Judge = verdict };
+    }
+
+    internal static IEnumerable<string> JudgeFailures(JudgeVerdict verdict)
+    {
+        if (verdict.AnsweredInsteadOfRewriting) yield return "judge: answered the draft instead of rewriting it";
+        if (verdict.InventedDetails) yield return $"judge: invented details ({verdict.InventedExamples})";
+        if (verdict.DroppedRequirements) yield return $"judge: dropped a stated requirement ({verdict.DroppedExamples})";
+        if (verdict.ChangedIntent) yield return "judge: changed what kind of request it is";
+        if (verdict.WrittenAsReply) yield return "judge: written as the AI's reply, not the user's message";
+        if (verdict.AddedRequests) yield return $"judge: added requests the draft didn't make ({verdict.AddedExamples})";
+        if (verdict.UnderDelivered) yield return $"judge: under-delivered ({verdict.UnderDeliveredExamples})";
     }
 
     /// <summary>
@@ -281,28 +350,54 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         return failures;
     }
 
-    private async Task<(JudgeVerdict? Verdict, string? Error)> JudgeAsync(LlmEndpoint judge, string draft, string rewrite, CancellationToken ct)
+    /// <summary>
+    /// The judge's rules, from docs/design/rewrite-intent.md: an added line is fine when it serves a goal the draft
+    /// states; a rewrite that only fixes wording when the draft needed more is a failure too (#34).
+    /// </summary>
+    internal const string JudgeInstructions = """
+        You grade a prompt-rewriting tool. It received a user's draft prompt and produced a rewrite meant to be sent to an AI assistant.
+        The tool's rule: write out what the user clearly meant, and never add what they didn't. An added line is good when it serves a goal the draft states and changes the result. The task itself counts as a goal ("do a code review", "fix this issue"), and the user may not know what that task requires, so the rewrite may use the AI's own knowledge of the task: which steps, checks or criteria the goal needs, and what form the answer takes. Choices the user may not know exist are fine when labelled as suggestions the user can keep or remove.
+        You may also get the expected depth and a must-cover list, written by a person who knows what the ideal rewrite covers. Expected depth is one of: Keep (asks for nothing new: fix the wording only), Clarify (a clear request: make it clear, add nothing it doesn't need), SpellOut (stated goals or limits must become the concrete steps or checks they require), Propose (an open-ended request to design something: propose a structure, labelled as suggestions). Use them for under_delivered; they never excuse any other problem.
+        Judge only the rewrite against the draft. Answer with one JSON object:
+        {"answered_instead_of_rewriting": true/false (true if the rewrite performs or answers the task rather than being a prompt that asks for it),
+         "invented_details": true/false (true if the rewrite states as fact specific details the draft did not state or clearly imply: technologies, numbers, deadlines, audiences, product names or requirements; asking the AI to check something, state assumptions or ask questions is fine),
+         "invented_examples": "the invented details, or empty",
+         "dropped_requirements": true/false (true if the draft states a rule, criterion, condition, preference or item to cover, however casually, and the rewrite leaves it out or weakens it),
+         "dropped_examples": "what was dropped, or empty",
+         "changed_intent": true/false (true if the rewrite changes what kind of message the draft is: a question became an instruction or the reverse; a statement, report or answer became a request or a question; a standing instruction ("whenever", "from now on") became a one-off task; the requested action changed, e.g. "fix" became "explain" or "set up" became "plan"; or pasted context was turned into the task),
+         "written_as_reply": true/false (true if any part of the rewrite is written as the AI's reply to the user instead of the user's own message: offering help, asking the user what they want, or asking the user to supply details),
+         "added_requests": true/false (true only if the rewrite adds something that serves no goal the draft states: a new goal or task; a deliverable, format, count or length the draft's goals don't call for; a role line or generic advice that changes nothing, such as "be thorough" or "follow best practices"; or a fallback such as "if you need more details, ask me first". Turning a stated goal into the steps or checks it requires is not an added request: "make sure nothing breaks" may become plan, wait for approval, work in small batches, verify. Suggestions clearly labelled as optional are not added requests),
+         "added_examples": "what was added, or empty",
+         "under_delivered": true/false (true if the rewrite misses what the user clearly meant: a stated goal or limit is left as vague wording when it needed spelling out as steps or checks; an open-ended request to design something gets no proposed structure; or a must-cover item is missing or only hinted at. Fixing only the wording is right for Keep and Clarify drafts and a failure for SpellOut and Propose drafts),
+         "under_delivered_examples": "what is missing, or empty",
+         "clearer_than_original": true/false,
+         "appropriate_length": true/false (false if a simple request was padded or a complex one was left vague),
+         "comment": "one short sentence"}
+        """;
+
+    /// <summary>What the judge reads: the draft, what the case's labels say the ideal rewrite covers, and the rewrite.</summary>
+    internal static string BuildJudgeMessage(EvalCase evalCase, string rewrite)
     {
-        const string instructions = """
-            You grade a prompt-rewriting tool. It received a user's draft prompt and produced a rewrite meant to be sent to an AI assistant.
-            Judge only the rewrite against the draft. Answer with one JSON object:
-            {"answered_instead_of_rewriting": true/false (true if the rewrite performs or answers the task rather than being a prompt that asks for it),
-             "invented_details": true/false (true if the rewrite adds specific facts, technologies, numbers, deadlines, audiences or requirements the draft did not state or clearly imply; asking the AI to state assumptions or ask questions is fine),
-             "invented_examples": "the invented details, or empty",
-             "dropped_requirements": true/false (true if the draft states a rule, criterion, condition, preference or item to cover, however casually, and the rewrite leaves it out or weakens it),
-             "dropped_examples": "what was dropped, or empty",
-             "changed_intent": true/false (true if the rewrite changes what kind of message the draft is: a question became an instruction or the reverse; a statement, report or answer became a request or a question; a standing instruction ("whenever", "from now on") became a one-off task; the requested action changed, e.g. "fix" became "explain" or "set up" became "plan"; or pasted context was turned into the task),
-             "written_as_reply": true/false (true if any part of the rewrite is written as the AI's reply to the user instead of the user's own message: offering help, asking the user what they want, or asking the user to supply details),
-             "added_requests": true/false (true if the rewrite asks the AI for something the draft did not ask for or clearly imply: extra deliverables, a required answer format, or steps such as "ask me for more details before answering"),
-             "added_examples": "what was added, or empty",
-             "clearer_than_original": true/false,
-             "appropriate_length": true/false (false if a simple request was padded or a complex one was left vague),
-             "comment": "one short sentence"}
-            """;
+        var sb = new StringBuilder();
+        sb.Append("<draft>\n").Append(evalCase.Draft).Append("\n</draft>\n\n");
+        if (evalCase.Expect != Expectation.Unspecified)
+            sb.Append("<expected_depth>").Append(evalCase.Expect).Append("</expected_depth>\n\n");
+        if (evalCase.MustCover.Count > 0)
+        {
+            sb.Append("<must_cover>\n");
+            foreach (var item in evalCase.MustCover) sb.Append("- ").Append(item).Append('\n');
+            sb.Append("</must_cover>\n\n");
+        }
+        sb.Append("<rewrite>\n").Append(rewrite).Append("\n</rewrite>");
+        return sb.ToString();
+    }
+
+    private async Task<(JudgeVerdict? Verdict, string? Error)> JudgeAsync(LlmEndpoint judge, EvalCase evalCase, string rewrite, CancellationToken ct)
+    {
         var messages = new List<ChatMessage>
         {
-            new("system", instructions),
-            new("user", $"<draft>\n{draft}\n</draft>\n\n<rewrite>\n{rewrite}\n</rewrite>"),
+            new("system", JudgeInstructions),
+            new("user", BuildJudgeMessage(evalCase, rewrite)),
         };
         try
         {
@@ -310,14 +405,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             var start = response.Content.IndexOf('{');
             var end = response.Content.LastIndexOf('}');
             if (start < 0 || end <= start) return (null, "the reply wasn't JSON");
-            using var doc = JsonDocument.Parse(response.Content[start..(end + 1)]);
-            var r = doc.RootElement;
-            bool B(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
-            string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
-            return (new JudgeVerdict(B("answered_instead_of_rewriting"), B("invented_details"), S("invented_examples"),
-                B("clearer_than_original"), B("appropriate_length"), S("comment"),
-                B("dropped_requirements"), S("dropped_examples"), B("changed_intent"),
-                B("written_as_reply"), B("added_requests"), S("added_examples")), null);
+            return (ParseVerdict(response.Content[start..(end + 1)]), null);
         }
         catch (LlmException ex) when (ex.Kind != LlmErrorKind.RateLimit)
         {
@@ -327,6 +415,20 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         {
             return (null, "the reply wasn't valid JSON: " + ex.Message);
         }
+    }
+
+    /// <summary>Reads the judge's JSON. A missing field counts as false, so older or terser judges still parse.</summary>
+    internal static JudgeVerdict ParseVerdict(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var r = doc.RootElement;
+        bool B(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
+        string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+        return new JudgeVerdict(B("answered_instead_of_rewriting"), B("invented_details"), S("invented_examples"),
+            B("clearer_than_original"), B("appropriate_length"), S("comment"),
+            B("dropped_requirements"), S("dropped_examples"), B("changed_intent"),
+            B("written_as_reply"), B("added_requests"), S("added_examples"),
+            B("under_delivered"), S("under_delivered_examples"));
     }
 
     public static string BuildReport(IReadOnlyList<EvalCaseResult> results, string modelLabel) => BuildReport(results, new EvalRunInfo(modelLabel));
@@ -343,7 +445,11 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         sb.AppendLine();
         sb.AppendLine(inv, $"Run {DateTime.Now:yyyy-MM-dd HH:mm} · model {info.ModelLabel}");
         if (info.InstructionsLabel is not null) sb.AppendLine(inv, $"\nSystem prompt: {info.InstructionsLabel}");
+        if (info.RejudgedFrom is not null)
+            sb.AppendLine(inv, $"\nRe-judged: the rewrites saved in {info.RejudgedFrom}, graded again with this build's checks and judge. The optimiser wasn't called.");
         if (info.StoppedEarly is not null) sb.AppendLine(inv, $"\n**Stopped early.** {info.StoppedEarly}");
+        if (info.Skipped is { Count: > 0 } skipped)
+            sb.AppendLine(inv, $"\nSaved runs left out ({skipped.Count}): {string.Join("; ", skipped)}");
         if (info.HeldOutSkipped > 0) sb.AppendLine(inv, $"\nHeld-out cases left out: {info.HeldOutSkipped} (run with --include-held-out for the final measurement).");
         if (info.JudgeLabel is not null)
             sb.AppendLine(inv, $"\nJudge: {info.JudgeLabel} ({(info.JudgeIndependent ? "independent provider" : "same provider as the optimiser, so not independent; set a judge in Settings → Data")})");
@@ -369,6 +475,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
             sb.AppendLine(inv, $"| Judge: changed the kind of request | {judged.Count(r => r.Judge!.ChangedIntent)}/{judged.Count} |");
             sb.AppendLine(inv, $"| Judge: written as the AI's reply | {judged.Count(r => r.Judge!.WrittenAsReply)}/{judged.Count} |");
             sb.AppendLine(inv, $"| Judge: added requests | {judged.Count(r => r.Judge!.AddedRequests)}/{judged.Count} |");
+            sb.AppendLine(inv, $"| Judge: under-delivered | {judged.Count(r => r.Judge!.UnderDelivered)}/{judged.Count} |");
         }
         sb.AppendLine(inv, $"| Latency p50 / p95 | {Pct(0.5):0} ms / {Pct(0.95):0} ms |");
         sb.AppendLine(inv, $"| Tokens (prompt / cached / completion) | {ok.Sum(r => r.Result!.PromptTokens):N0} / {ok.Sum(r => r.Result!.CachedTokens):N0} / {ok.Sum(r => r.Result!.CompletionTokens):N0} |");
@@ -431,7 +538,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
                 if (res.Questions.Count > 0) sb.AppendLine("\nQuestions: " + string.Join(" | ", res.Questions));
                 if (res.Changes.Count > 0) sb.AppendLine("\nChanges: " + string.Join(" | ", res.Changes));
                 if (res.Warnings.Count > 0) sb.AppendLine("\nWarnings: " + string.Join(" | ", res.Warnings));
-                if (r.Judge is { } j) sb.AppendLine(inv, $"\nJudge: clearer={j.ClearerThanOriginal}, length ok={j.AppropriateLength}, invented={j.InventedDetails} {j.InventedExamples}, answered={j.AnsweredInsteadOfRewriting}, dropped={j.DroppedRequirements} {j.DroppedExamples}, changed intent={j.ChangedIntent}, reply voice={j.WrittenAsReply}, added={j.AddedRequests} {j.AddedExamples}. {j.Comment}");
+                if (r.Judge is { } j) sb.AppendLine(inv, $"\nJudge: clearer={j.ClearerThanOriginal}, length ok={j.AppropriateLength}, invented={j.InventedDetails} {j.InventedExamples}, answered={j.AnsweredInsteadOfRewriting}, dropped={j.DroppedRequirements} {j.DroppedExamples}, changed intent={j.ChangedIntent}, reply voice={j.WrittenAsReply}, added={j.AddedRequests} {j.AddedExamples}, under-delivered={j.UnderDelivered} {j.UnderDeliveredExamples}. {j.Comment}");
             }
             else
             {
