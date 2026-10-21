@@ -169,6 +169,16 @@ public class JudgeTests
     }
 
     [Fact]
+    public void Calibration_counts_invented_details_as_added_and_reply_voice_as_a_changed_kind()
+    {
+        var verdict = new JudgeVerdict(false, true, "React", true, true, "", WrittenAsReply: true);
+        var report = JudgeCalibration.Build([new EvalCaseResult { Case = DriveCase("a"), Judge = verdict }], [new OwnerGrade("a", 1, true, null, true)]);
+
+        Assert.Contains("| Added something the user didn't mean | 1/1 (100%) | none | none |", report);
+        Assert.Contains("| Changed the kind of message | 1/1 (100%) | none | none |", report);
+    }
+
+    [Fact]
     public void Calibration_reports_agreement_and_names_the_runs_that_disagree()
     {
         JudgeVerdict V(bool added = false, bool under = false) => new(false, false, "", true, true, "", AddedRequests: added, UnderDelivered: under);

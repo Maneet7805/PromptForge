@@ -48,12 +48,13 @@ public static class JudgeCalibration
 
     private sealed record Question(string Name, Func<OwnerGrade, bool?> Owner, Func<JudgeVerdict, bool> Judge);
 
-    // "Left something out" covers both a dropped stated requirement and under-delivery: the owner graded one question.
+    // Each question matches the owner's grading page, which asked one question where the judge has several fields:
+    // "added" took in invented details, "left out" took in under-delivery, "changed kind" took in the AI's-reply voice.
     private static readonly Question[] Questions =
     [
-        new("Added something the user didn't mean", g => g.Added, j => j.AddedRequests),
+        new("Added something the user didn't mean", g => g.Added, j => j.AddedRequests || j.InventedDetails),
         new("Left something out", g => g.LeftOut, j => j.UnderDelivered || j.DroppedRequirements),
-        new("Changed the kind of message", g => g.ChangedKind, j => j.ChangedIntent),
+        new("Changed the kind of message", g => g.ChangedKind, j => j.ChangedIntent || j.WrittenAsReply),
     ];
 
     public static string Build(IReadOnlyList<EvalCaseResult> results, IReadOnlyList<OwnerGrade> grades)
