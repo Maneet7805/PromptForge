@@ -179,6 +179,21 @@ public class JudgeTests
     }
 
     [Fact]
+    public void Calibration_counts_answering_the_draft_as_a_changed_kind()
+    {
+        var verdict = new JudgeVerdict(AnsweredInsteadOfRewriting: true, false, "", true, true, "");
+        var report = JudgeCalibration.Build([new EvalCaseResult { Case = DriveCase("a"), Judge = verdict }], [new OwnerGrade("a", 1, null, null, true)]);
+
+        Assert.Contains("| Changed the kind of message | 1/1 (100%) | none | none |", report);
+    }
+
+    [Fact]
+    public void The_instructions_treat_returning_edited_text_as_answering()
+    {
+        Assert.Contains("returning the finished text itself is answering", EvalRunner.JudgeInstructions);
+    }
+
+    [Fact]
     public void Calibration_reports_agreement_and_names_the_runs_that_disagree()
     {
         JudgeVerdict V(bool added = false, bool under = false) => new(false, false, "", true, true, "", AddedRequests: added, UnderDelivered: under);

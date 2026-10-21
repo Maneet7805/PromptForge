@@ -70,7 +70,7 @@ dns-basic,1,no,no,no
 drive-organise,2,no,yes,
 ```
 
-Each answer is `yes` or `no`; leave it blank if you didn't grade that question. `added`: the rewrite added something you didn't mean (the judge's "added requests" or "invented details"). `left_out`: it dropped or under-delivered something you meant ("dropped a stated requirement" or "under-delivered"). `changed_kind`: it changed the kind of message ("changed the kind of request" or "written as the AI's reply"). Then:
+Each answer is `yes` or `no`; leave it blank if you didn't grade that question. `added`: the rewrite added something you didn't mean (the judge's "added requests" or "invented details"). `left_out`: it dropped or under-delivered something you meant ("dropped a stated requirement" or "under-delivered"). `changed_kind`: it changed the kind of message ("changed the kind of request", "written as the AI's reply" or "answered instead of rewriting"). Then:
 
 ```
 & "$env:LOCALAPPDATA\Programs\PromptForge\PromptForge.exe" --rejudge eval\results\before\results.json eval\cases.json eval\results\calibration-1 --grades D:\grades.csv | Out-Null
