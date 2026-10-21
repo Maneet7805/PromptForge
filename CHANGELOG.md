@@ -15,6 +15,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - Quality check: the judge grades by intent (#34). Spelling out a stated goal ("make sure nothing breaks" → plan, approve, verify) no longer counts as an added request; a new "under-delivered" check fails rewrites that only fix the wording when the draft's goals needed spelling out, or that miss a case's `mustCover` item. The judge now reads each case's `expect` and `mustCover`.
 - `--rejudge <results.json> <cases.json> <folder>` grades a saved run again with the current judge, without calling the optimiser, so an old baseline can be graded by the same judge as a new run. With `--grades <file.csv>` it also reports how often the judge agrees with your own grades.
 
+### Changed
+- Rewriting rules (#35, work in progress): rewrites now follow what you meant. Stated goals ("make sure nothing breaks") are spelled out as concrete steps; open-ended requests ("you decide") get a proposed structure labelled as suggestions; statements and answers are only tidied. The old per-task-type additions and the "ask me first" fallback lines are gone, and missing details are asked in the review window instead.
+
 ### Fixed
 - Re-run now sends the review window's questions together with your answers, in their own section beside the draft. Before, only the answers were appended to the draft, so a short reply like "uni essay, 800" lost its meaning, was rewritten as more draft, and had to survive the dropped-details check word for word (#19).
 - Quality check: runs that errored (rate limits, network failures) no longer count as failures. Comparisons leave them out, mark a case "not comparable" when errors leave it too few clean runs, and report how many runs errored on each side; pass rates in the report leave them out too.
