@@ -44,6 +44,19 @@ public partial class SystemPromptTests
     }
 
     [Fact]
+    public void A_destructive_draft_without_a_safety_goal_gets_no_safety_steps()
+    {
+        // D3: the user asked for the action; confirmations and "list first" steps are the user's to ask for.
+        Assert.Contains("add no safety steps, confirmations or \"list them first\" requests, however destructive the action is", Text);
+    }
+
+    [Fact]
+    public void An_open_ended_draft_gets_suggestions_not_a_role_line_or_requirements()
+    {
+        Assert.Contains("Do not add a role line (\"act as my tutor\"), a \"Requirements\" list", Text);
+    }
+
+    [Fact]
     public void Proposals_are_labelled_so_they_stay_the_users_to_remove()
     {
         Assert.Contains("Suggested approach (keep, change or remove any of these):", Text);
