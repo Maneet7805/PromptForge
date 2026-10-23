@@ -51,6 +51,16 @@ public partial class SystemPromptTests
     }
 
     [Fact]
+    public void A_reference_to_material_is_treated_as_present_and_never_requested()
+    {
+        // "do a code review of this pr" came back asking for the PR link, in the prompt and as a question.
+        Assert.Contains("treat it as present", Text);
+        Assert.Contains("no \"please provide, paste or share it\"", Text);
+        Assert.Contains("Never put a question in \"questions\" that only asks the user to supply or confirm the material", Text);
+        Assert.DoesNotContain("Are the quotes attached", Text);
+    }
+
+    [Fact]
     public void An_open_ended_draft_gets_suggestions_not_a_role_line_or_requirements()
     {
         Assert.Contains("Do not add a role line (\"act as my tutor\"), a \"Requirements\" list", Text);
