@@ -131,7 +131,7 @@ internal sealed class ReviewForm : Form
         _copy.Click += (_, _) => Decide(ReviewAction.Copy);
         _reject.Click += (_, _) => Decide(ReviewAction.Reject);
         _rerun.Click += (_, _) => StartRun();
-        _undoEdits.Click += (_, _) => { if (_result is not null) _improved.Text = _result.Prompt; };
+        _undoEdits.Click += (_, _) => { if (_result is not null) _improved.Text = ToWindowsNewlines(_result.Prompt); };
         _improved.TextChanged += (_, _) => _undoEdits.Enabled = _result is not null && _improved.Text != _result.Prompt;
         _originalBox.Text = ctx.Original.Replace("\r\n", "\n").Replace("\n", "\r\n");
         SetWorking(false);
