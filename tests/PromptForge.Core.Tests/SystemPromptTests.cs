@@ -55,9 +55,14 @@ public partial class SystemPromptTests
     {
         // "do a code review of this pr" came back asking for the PR link, in the prompt and as a question.
         Assert.Contains("treat it as present", Text);
-        Assert.Contains("no \"please provide, paste or share it\"", Text);
-        Assert.Contains("Never put a question in \"questions\" that only asks the user to supply or confirm the material", Text);
+        Assert.Contains("Never ask the user to provide, share or confirm it, in the prompt or in \"questions\"", Text);
         Assert.DoesNotContain("Are the quotes attached", Text);
+    }
+
+    [Fact]
+    public void A_one_line_draft_that_names_a_task_still_gets_what_the_task_needs()
+    {
+        Assert.Contains("A one-line draft that only names a task still states a goal", Text);
     }
 
     [Fact]
