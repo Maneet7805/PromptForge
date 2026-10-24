@@ -42,6 +42,12 @@ public sealed record OptimizeRequest
 
     /// <summary>Coarse label for where the draft was written, e.g. "ChatGPT (browser)". Optional.</summary>
     public string? WrittenIn { get; init; }
+
+    /// <summary>Questions from earlier runs on this draft that <see cref="Answers"/> may refer to.</summary>
+    public IReadOnlyList<string> PreviousQuestions { get; init; } = [];
+
+    /// <summary>What the user typed in reply on re-run: answers or extra details. Sent beside the draft, never as part of it.</summary>
+    public string? Answers { get; init; }
 }
 
 public sealed record OptimizeResult

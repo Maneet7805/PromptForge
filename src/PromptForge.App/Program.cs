@@ -21,6 +21,8 @@ internal static class Program
             return EvalCommand.Run(args[1..]);
         if (args.Length > 0 && args[0] == "--eval-compare")
             return EvalCommand.Compare(args[1..]);
+        if (args.Length > 0 && args[0] == "--rejudge")
+            return EvalCommand.Rejudge(args[1..]);
 
         // A copy run from anywhere else (e.g. the dist folder) offers to install or update itself.
         if (!SelfInstaller.IsRunningFromInstallDir && !args.Contains("--portable") && SelfInstaller.OfferInstall())

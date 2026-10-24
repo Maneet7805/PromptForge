@@ -41,6 +41,24 @@ public static class UserMessageBuilder
         Line("<draft>");
         Line(masked.Text.Trim());
         Line("</draft>");
+
+        // Kept out of <draft> so the answers aren't rewritten as more draft, and so a short answer
+        // like "uni essay, 800" arrives next to the question that gives it meaning.
+        if (!string.IsNullOrWhiteSpace(request.Answers))
+        {
+            Line();
+            Line("<user_answers>");
+            Line("The user's reply to your earlier questions about this draft, or details they added. It counts as something the user said: work it into the rewrite where it belongs, don't rewrite it as more draft, and don't ask again about anything it settles.");
+            if (request.PreviousQuestions.Count > 0)
+            {
+                Line("Earlier questions:");
+                foreach (var question in request.PreviousQuestions)
+                    Line($"- {question.Trim()}");
+            }
+            Line("Reply:");
+            Line(request.Answers.Trim());
+            Line("</user_answers>");
+        }
         return sb.ToString();
     }
 
