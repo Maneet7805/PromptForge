@@ -60,9 +60,11 @@ public partial class SystemPromptTests
     }
 
     [Fact]
-    public void A_one_line_draft_that_names_a_task_still_gets_what_the_task_needs()
+    public void A_short_correction_is_not_treated_as_a_task_to_spell_out()
     {
-        Assert.Contains("A one-line draft that only names a task still states a goal", Text);
+        // "no numbers" (a mid-chat correction) came back as "Please provide the requested content without using any numbers"
+        // once a rule told the model that a one-line draft still states a goal to expand.
+        Assert.DoesNotContain("A one-line draft that only names a task still states a goal", Text);
     }
 
     [Fact]
