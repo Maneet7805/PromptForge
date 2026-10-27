@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using PromptForge.Core.Optimization;
+using PromptForge.Core.Voice;
 
 namespace PromptForge.Core.Llm;
 
@@ -92,12 +93,26 @@ public sealed partial class OpenAiCompatibleClient(HttpClient http) : ILlmClient
 
     public async Task<string> TranscribeAsync(LlmEndpoint endpoint, byte[] audio, string fileName, string? language, TimeSpan timeout, CancellationToken ct)
     {
+        // verbose_json carries the model's confidence per segment, which TranscriptFilter uses to drop invented text.
+        // A provider that rejects it gets the plain json format, as before.
+        try
+        {
+            return await RequestTranscriptionAsync(endpoint, audio, fileName, language, timeout, "verbose_json", ct).ConfigureAwait(false);
+        }
+        catch (LlmException ex) when (ex.Kind == LlmErrorKind.JsonModeUnsupported)
+        {
+            return await RequestTranscriptionAsync(endpoint, audio, fileName, language, timeout, "json", ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<string> RequestTranscriptionAsync(LlmEndpoint endpoint, byte[] audio, string fileName, string? language, TimeSpan timeout, string responseFormat, CancellationToken ct)
+    {
         using var form = new MultipartFormDataContent();
         var file = new ByteArrayContent(audio);
         file.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
         form.Add(file, "file", fileName);
         form.Add(new StringContent(endpoint.Model), "model");
-        form.Add(new StringContent("json"), "response_format");
+        form.Add(new StringContent(responseFormat), "response_format");
         form.Add(new StringContent("0"), "temperature");
         if (!string.IsNullOrWhiteSpace(language)) form.Add(new StringContent(language.Trim()), "language");
 
@@ -110,7 +125,7 @@ public sealed partial class OpenAiCompatibleClient(HttpClient http) : ILlmClient
         try
         {
             using var doc = JsonDocument.Parse(text);
-            return doc.RootElement.TryGetProperty("text", out var t) ? (t.GetString() ?? "").Trim() : "";
+            return TranscriptFilter.Read(doc.RootElement);
         }
         catch (JsonException ex)
         {
