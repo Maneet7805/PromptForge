@@ -16,6 +16,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - `--rejudge <results.json> <cases.json> <folder>` grades a saved run again with the current judge, without calling the optimiser, so an old baseline can be graded by the same judge as a new run. With `--grades <file.csv>` it also reports how often the judge agrees with your own grades.
 
 ### Fixed
+- Re-run no longer discards edits you made to the improved prompt without asking: it now asks before replacing them. "Undo my edits" also no longer lights up for an untouched multi-line prompt (#20).
 - "Undo my edits" no longer shows a multi-line improved prompt on a single line in the review window (#63).
 - Re-run now sends the review window's questions together with your answers, in their own section beside the draft. Before, only the answers were appended to the draft, so a short reply like "uni essay, 800" lost its meaning, was rewritten as more draft, and had to survive the dropped-details check word for word (#19).
 - Quality check: runs that errored (rate limits, network failures) no longer count as failures. Comparisons leave them out, mark a case "not comparable" when errors leave it too few clean runs, and report how many runs errored on each side; pass rates in the report leave them out too.

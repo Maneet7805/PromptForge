@@ -131,8 +131,8 @@ internal sealed class ReviewForm : Form
         _copy.Click += (_, _) => Decide(ReviewAction.Copy);
         _reject.Click += (_, _) => Decide(ReviewAction.Reject);
         _rerun.Click += (_, _) => StartRun();
-        _undoEdits.Click += (_, _) => { if (_result is not null) _improved.Text = ToWindowsNewlines(_result.Prompt); };
-        _improved.TextChanged += (_, _) => _undoEdits.Enabled = _result is not null && _improved.Text != _result.Prompt;
+        _undoEdits.Click += (_, _) => { if (_result is not null) _improved.Text = EditCheck.ToWindowsNewlines(_result.Prompt); };
+        _improved.TextChanged += (_, _) => _undoEdits.Enabled = HasUserEdits();
         _originalBox.Text = ctx.Original.Replace("\r\n", "\n").Replace("\n", "\r\n");
         SetWorking(false);
         _accept.Enabled = _copy.Enabled = false;
@@ -176,8 +176,18 @@ internal sealed class ReviewForm : Form
         base.OnFormClosing(e);
     }
 
+    /// <summary>True when the Improved box no longer matches what the optimiser last produced.</summary>
+    private bool HasUserEdits() =>
+        _result is not null && EditCheck.HasEdits(_improved.Text, _result.Prompt);
+
     private async void StartRun()
     {
+        // A re-run replaces the Improved box, so hand edits would be lost without a way back.
+        if (HasUserEdits() &&
+            MessageBox.Show(this, "Re-run will replace the edits you made to the improved prompt.\n\nReplace them?", "PromptForge",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            return;
+
         _runCts?.Cancel();
         var cts = _runCts = new CancellationTokenSource();
         var mode = Enum.Parse<OptimizeMode>((string)_mode.SelectedItem!);
@@ -226,7 +236,7 @@ internal sealed class ReviewForm : Form
         _result = result;
         foreach (var question in result.Questions)
             if (!_askedQuestions.Contains(question)) _askedQuestions.Add(question);
-        _improved.Text = ToWindowsNewlines(result.Prompt);
+        _improved.Text = EditCheck.ToWindowsNewlines(result.Prompt);
         _undoEdits.Enabled = false;
         _accept.Enabled = _copy.Enabled = true;
         if (result.IsUnchanged && _ctx.Mode != CaptureMode.Clipboard && _ctx.Mode != CaptureMode.InsertAtCursor)
@@ -322,8 +332,6 @@ internal sealed class ReviewForm : Form
         Font = new Font("Segoe UI", 10.5f),
         MaxLength = 0,
     };
-
-    private static string ToWindowsNewlines(string s) => s.Replace("\r\n", "\n").Replace("\n", "\r\n");
 
     /// <summary>Returns the edited text using the original draft's newline convention.</summary>
     private static string FromWindowsNewlines(string s, string original) =>
