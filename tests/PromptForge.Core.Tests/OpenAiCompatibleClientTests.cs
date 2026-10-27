@@ -191,6 +191,38 @@ public class OpenAiCompatibleClientTests
     }
 
     [Fact]
+    public async Task Transcribe_asks_for_the_verbose_format_and_drops_text_the_model_thinks_is_not_speech()
+    {
+        var (client, handler) = ClientReturning(Json("""{"text":" Thank you.","segments":[{"text":" Thank you.","no_speech_prob":0.9,"avg_logprob":-1.3}]}"""));
+
+        var text = await client.TranscribeAsync(Endpoint, [1], "a.wav", null, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        Assert.Equal("", text);
+        Assert.Contains("verbose_json", handler.Body!);
+    }
+
+    [Fact]
+    public async Task Transcribe_falls_back_to_plain_json_when_the_provider_rejects_the_verbose_format()
+    {
+        var bodies = new List<string>();
+        var handler = new FakeHandler((_, body) =>
+        {
+            bodies.Add(body ?? "");
+            return Task.FromResult(bodies.Count == 1
+                ? Json("""{"error":{"message":"response_format verbose_json is not supported for this model"}}""", HttpStatusCode.BadRequest)
+                : Json("""{"text":"hello"}"""));
+        });
+        var client = new OpenAiCompatibleClient(new HttpClient(handler));
+
+        var text = await client.TranscribeAsync(Endpoint, [1], "a.wav", null, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        Assert.Equal("hello", text);
+        Assert.Equal(2, bodies.Count);
+        Assert.Contains("verbose_json", bodies[0]);
+        Assert.DoesNotContain("verbose_json", bodies[1]);
+    }
+
+    [Fact]
     public async Task Transcribe_without_a_language_does_not_send_one()
     {
         var (client, handler) = ClientReturning(Json("""{"text":"hi"}"""));
