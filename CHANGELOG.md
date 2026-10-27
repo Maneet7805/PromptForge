@@ -5,6 +5,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 ## [Unreleased]
 
 ### Added
+- Quality check: a new case for a short bug report with a "don't break anything" limit, taken from real use (#74).
 - Quality check: each case runs 3 times by default (`--repeat N` to change), and the report shows the pass rate per case, lowest first, plus how many cases passed every run, failed every run, or were mixed.
 - Quality check: a judge model set separately in Settings → Data (Gemini by default, using the Gemini key from the Model tab). Without its key, the main model's fallback grades and the report says the judge isn't independent.
 - Quality check: the judge also flags rewrites written as the AI's reply and requests the draft didn't make (extra deliverables, answer formats, "ask me first" steps), and its intent check covers statements, answers and standing instructions.
