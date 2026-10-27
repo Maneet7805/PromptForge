@@ -31,4 +31,12 @@ public class EditCheckTests
     [Fact]
     public void Clearing_the_box_is_an_edit() =>
         Assert.True(EditCheck.HasEdits("", "Fix the bug."));
+
+    [Fact]
+    public void Unix_line_breaks_become_windows_line_breaks() =>
+        Assert.Equal("a\r\nb\r\n\r\nc", EditCheck.ToWindowsNewlines("a\nb\n\nc"));
+
+    [Fact]
+    public void Windows_line_breaks_are_not_doubled() =>
+        Assert.Equal("a\r\nb", EditCheck.ToWindowsNewlines("a\r\nb"));
 }
