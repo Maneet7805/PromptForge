@@ -252,6 +252,70 @@ public class PromptOptimizerTests
     public void Output_budget_is_clamped(int chars, OptimizeMode mode, int expected) =>
         Assert.Equal(expected, PromptOptimizer.EstimateMaxTokens(new string('a', chars), mode));
 
+    [Fact]
+    public async Task No_endpoint_fails_without_calling_the_model()
+    {
+        var client = new FakeClient(_ => Json("x"));
+
+        var ex = await Assert.ThrowsAsync<OptimizeException>(() =>
+            new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "explain closures" }, []));
+
+        Assert.Equal(OptimizeFailure.NoEndpoint, ex.Failure);
+        Assert.Empty(client.Calls);
+    }
+
+    [Fact]
+    public async Task Text_of_exactly_the_input_limit_is_accepted_and_one_more_character_is_not()
+    {
+        var client = new FakeClient(_ => Json("x"));
+        var optimizer = new PromptOptimizer(client);
+        var options = new OptimizerOptions { MaxInputChars = 100 };
+
+        await optimizer.OptimizeAsync(new OptimizeRequest { Text = new string('a', 100) }, [Primary], options);
+        var ex = await Assert.ThrowsAsync<OptimizeException>(() =>
+            optimizer.OptimizeAsync(new OptimizeRequest { Text = new string('a', 101) }, [Primary], options));
+
+        Assert.Equal(OptimizeFailure.TooLong, ex.Failure);
+        Assert.Single(client.Calls);
+    }
+
+    [Fact]
+    public async Task A_truncated_reply_is_retried_once_with_double_the_output_budget()
+    {
+        var replies = 0;
+        var client = new FakeClient(_ => ++replies == 1 ? throw new LlmException(LlmErrorKind.Truncated, "length") : Json("Explain closures."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "explain closures" }, [Primary]);
+
+        Assert.Equal("Explain closures.", result.Prompt);
+        Assert.Equal(2, client.Calls.Count);
+        Assert.Equal(client.Calls[0].Options.MaxTokens * 2, client.Calls[1].Options.MaxTokens);
+    }
+
+    [Fact]
+    public async Task The_doubled_output_budget_is_capped_at_12000_tokens()
+    {
+        var replies = 0;
+        var client = new FakeClient(_ => ++replies == 1 ? throw new LlmException(LlmErrorKind.Truncated, "length") : Json("x"));
+
+        await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = new string('a', 35_000) }, [Primary]);
+
+        Assert.Equal(8000, client.Calls[0].Options.MaxTokens);
+        Assert.Equal(12_000, client.Calls[1].Options.MaxTokens);
+    }
+
+    [Fact]
+    public async Task A_second_truncated_reply_on_the_same_endpoint_is_not_retried_again()
+    {
+        var client = new FakeClient(_ => throw new LlmException(LlmErrorKind.Truncated, "length"));
+
+        var ex = await Assert.ThrowsAsync<OptimizeException>(() =>
+            new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "explain closures" }, [Primary]));
+
+        Assert.Equal(OptimizeFailure.Model, ex.Failure);
+        Assert.Equal(2, client.Calls.Count);
+    }
+
     internal sealed class FakeClient(Func<FakeCall, string> respond) : ILlmClient
     {
         public List<FakeCall> Calls { get; } = [];
