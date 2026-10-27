@@ -178,7 +178,7 @@ internal sealed class ReviewForm : Form
 
     /// <summary>True when the Improved box no longer matches what the optimiser last produced.</summary>
     private bool HasUserEdits() =>
-        _result is not null && NormalizeNewlines(_improved.Text) != NormalizeNewlines(_result.Prompt);
+        _result is not null && EditCheck.HasEdits(_improved.Text, _result.Prompt);
 
     private async void StartRun()
     {
@@ -333,9 +333,7 @@ internal sealed class ReviewForm : Form
         MaxLength = 0,
     };
 
-    private static string NormalizeNewlines(string s) => s.Replace("\r\n", "\n");
-
-    private static string ToWindowsNewlines(string s) => NormalizeNewlines(s).Replace("\n", "\r\n");
+    private static string ToWindowsNewlines(string s) => EditCheck.NormalizeNewlines(s).Replace("\n", "\r\n");
 
     /// <summary>Returns the edited text using the original draft's newline convention.</summary>
     private static string FromWindowsNewlines(string s, string original) =>
