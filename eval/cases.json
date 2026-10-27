@@ -7,6 +7,7 @@
 
   { "id": "vague-assignment", "expectQuestions": true, "category": "vague", "draft": "help me with my assignment", "repeat": 3, "expect": "Clarify" },
   { "id": "vague-code-better", "expectQuestions": true, "category": "vague", "draft": "make my code better", "expect": "Clarify" },
+  { "id": "vague-bug-slow", "expectQuestions": true, "category": "vague", "draft": "fix my login bug. its slow also. dont break anything", "expect": "Clarify", "mustCover": ["a requirement not to break anything that works today", "the slowness as a second problem to fix"], "source": "real use, 2026-10-28 (#25)" },
   { "id": "vague-ai-essay", "expectQuestions": true, "category": "vague", "draft": "write something about AI in healthcare", "expect": "Clarify" },
   { "id": "vague-databases", "expectQuestions": true, "category": "vague", "draft": "explain databases", "expect": "Clarify" },
   { "id": "vague-plan", "expectQuestions": true, "category": "vague", "draft": "i need a plan for my project", "expect": "Clarify" },
