@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- The running version now shows in the tray menu ("PromptForge 1.2.0") and at the bottom of the Settings window (#84).
+
 ## [1.2.0] - 2026-10-30
 
 ### Added

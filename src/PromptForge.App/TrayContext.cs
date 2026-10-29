@@ -84,7 +84,7 @@ internal sealed class TrayContext : ApplicationContext
     private ContextMenuStrip BuildMenu()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add(new ToolStripMenuItem("PromptForge") { Enabled = false, Font = new Font(menu.Font, FontStyle.Bold) });
+        menu.Items.Add(new ToolStripMenuItem($"PromptForge {Application.ProductVersion}") { Enabled = false, Font = new Font(menu.Font, FontStyle.Bold) });
         menu.Items.Add(_shortcutsInfo);
         menu.Items.Add(new ToolStripSeparator());
 
