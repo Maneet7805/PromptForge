@@ -4,6 +4,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-30
+
 ### Added
 - Quality check: a new case for a short bug report with a "don't break anything" limit, taken from real use (#74).
 - Quality check: each case runs 3 times by default (`--repeat N` to change), and the report shows the pass rate per case, lowest first, plus how many cases passed every run, failed every run, or were mixed.
@@ -17,7 +19,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - `--rejudge <results.json> <cases.json> <folder>` grades a saved run again with the current judge, without calling the optimiser, so an old baseline can be graded by the same judge as a new run. With `--grades <file.csv>` it also reports how often the judge agrees with your own grades.
 
 ### Changed
-- Rewriting rules (#35, work in progress): rewrites now follow what you meant. Stated goals ("make sure nothing breaks") are spelled out as concrete steps; open-ended requests ("you decide") get a proposed structure labelled as suggestions; statements and answers are only tidied. The old per-task-type additions and the "ask me first" fallback lines are gone, and missing details are asked in the review window instead.
+- Rewriting rules (#35): rewrites now follow what you meant. Stated goals ("make sure nothing breaks") are spelled out as concrete steps; open-ended requests ("you decide") get a proposed structure labelled as suggestions; statements and answers are only tidied. The old per-task-type additions and the "ask me first" fallback lines are gone, and missing details are asked in the review window instead.
+- Rewriting rules, measured with the quality check: 57 of 75 runs passed on the 25 new cases (old rules 31 of 75), 185 of 222 on the 76 older cases (158 of 228), and 26 of 32 on the 11 held-out cases (16 of 31). Known gaps, to be worked on next: invented numbers or extra requirements in some rewrites (#79), fewer questions on vague drafts (#80), and a pasted message plus a short "fix this" that can come back garbled (#81).
 
 ### Fixed
 - Re-run no longer discards edits you made to the improved prompt without asking: it now asks before replacing them. "Undo my edits" also no longer lights up for an untouched multi-line prompt (#20).
@@ -102,6 +105,7 @@ First public release. It contains everything from the 0.x builds plus the fixes 
 ### Added
 - Initial personal build: core optimiser, tray app, review window, settings, voice and eval runner.
 
+[1.2.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.2.0
 [1.1.1]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.0.0
