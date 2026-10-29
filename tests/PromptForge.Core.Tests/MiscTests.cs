@@ -92,6 +92,38 @@ public class HotkeyChordTests
         HotkeyChord.TryParse("alt+ctrl+1", out var chord);
         Assert.Equal("Ctrl+Alt+1", chord.ToString());
     }
+
+    [Fact]
+    public void Ctrl_alt_delete_is_reserved_by_windows_but_adding_shift_is_allowed()
+    {
+        Assert.True(HotkeyChord.TryParse("Ctrl+Alt+Delete", out var chord));
+        Assert.Contains("reserved", chord.Problem());
+
+        Assert.True(HotkeyChord.TryParse("Ctrl+Alt+Shift+Delete", out chord));
+        Assert.Null(chord.Problem());
+    }
+
+    [Fact]
+    public void A_chord_with_no_key_has_a_problem()
+    {
+        Assert.False(HotkeyChord.TryParse("", out var chord));
+        Assert.NotNull(chord.Problem());
+    }
+
+    [Theory]
+    [InlineData("Ctrl+LControlKey")]
+    [InlineData("Alt+Menu")]
+    [InlineData("Shift+RShiftKey")]
+    public void Rejects_a_modifier_key_name_used_as_the_key(string text) =>
+        Assert.False(HotkeyChord.TryParse(text, out _));
+
+    [Fact]
+    public void Win_is_parsed_and_printed_after_the_other_modifiers()
+    {
+        Assert.True(HotkeyChord.TryParse("Win+Shift+Alt+Ctrl+K", out var chord));
+        Assert.True(chord.Win);
+        Assert.Equal("Ctrl+Alt+Shift+Win+K", chord.ToString());
+    }
 }
 
 public class TextDiffTests
