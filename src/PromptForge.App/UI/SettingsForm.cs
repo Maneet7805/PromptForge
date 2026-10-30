@@ -88,7 +88,8 @@ internal sealed class SettingsForm : Form
         cancel.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
         save.Click += (_, _) => Save();
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
-        buttons.Controls.AddRange([cancel, save]);
+        var version = new Label { Text = $"Version {Application.ProductVersion}", AutoSize = true, ForeColor = SystemColors.GrayText, Padding = new Padding(0, 6, 0, 0) };
+        buttons.Controls.AddRange([cancel, save, version]);
         CancelButton = cancel;
 
         Controls.Add(tabs);
