@@ -8,6 +8,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - The running version now shows in the tray menu ("PromptForge 1.2.0") and at the bottom of the Settings window (#84).
 - Quality check: three long synthetic drafts (about 1,600, 3,800 and 7,400 characters, 11 to 13 points each), each in Standard and Detailed, so dropped points and shrinking on long input can be measured (#76).
 
+### Fixed
+- When the model's reply isn't valid JSON (Groq: "Failed to validate JSON", seen on long drafts in Detailed mode), PromptForge now retries once and then tries the fallback model, instead of stopping with an error (#88).
+
 ## [1.2.0] - 2026-10-30
 
 ### Added

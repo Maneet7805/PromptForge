@@ -316,6 +316,47 @@ public class PromptOptimizerTests
         Assert.Equal(2, client.Calls.Count);
     }
 
+    private static LlmException InvalidJson() =>
+        new(LlmErrorKind.InvalidJsonOutput, "Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.");
+
+    [Fact]
+    public async Task Invalid_json_from_the_provider_is_retried_once_on_the_same_model_with_a_reminder()
+    {
+        var failures = 1;
+        var client = new FakeClient(_ => failures-- > 0 ? throw InvalidJson() : Json("Do it properly."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "do it" }, [Primary, Fallback]);
+
+        Assert.Equal("Do it properly.", result.Prompt);
+        Assert.Equal(2, client.Calls.Count);
+        Assert.All(client.Calls, c => Assert.Equal("big-model", c.Endpoint.Model));
+        Assert.Contains("JSON", client.Calls[1].Messages[^1].Content);
+    }
+
+    [Fact]
+    public async Task Invalid_json_twice_falls_back_to_the_next_model()
+    {
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model" ? throw InvalidJson() : Json("From the small model."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "do it" }, [Primary, Fallback]);
+
+        Assert.Equal("From the small model.", result.Prompt);
+        Assert.Equal(["big-model", "big-model", "small-model"], client.Calls.Select(c => c.Endpoint.Model));
+    }
+
+    [Fact]
+    public async Task Invalid_json_from_every_model_fails_with_a_clear_message_after_two_tries_each()
+    {
+        var client = new FakeClient(_ => throw InvalidJson());
+
+        var ex = await Assert.ThrowsAsync<OptimizeException>(() =>
+            new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "do it" }, [Primary, Fallback]));
+
+        Assert.Equal(OptimizeFailure.Model, ex.Failure);
+        Assert.Equal(4, client.Calls.Count);
+        Assert.DoesNotContain("failed_generation", ex.Message);
+    }
+
     internal sealed class FakeClient(Func<FakeCall, string> respond) : ILlmClient
     {
         public List<FakeCall> Calls { get; } = [];

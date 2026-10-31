@@ -19,6 +19,8 @@ public enum LlmErrorKind
     Timeout,
     Network,
     Cancelled,
+    /// <summary>The provider refused a reply because the model's JSON was invalid (Groq: "Failed to validate JSON"). Often passes on a second try.</summary>
+    InvalidJsonOutput,
 }
 
 public sealed class LlmException : Exception
@@ -36,7 +38,8 @@ public sealed class LlmException : Exception
     /// <summary>Whether trying another model or provider might succeed.</summary>
     public bool WorthFallingBack => Kind is LlmErrorKind.RateLimit or LlmErrorKind.TooLarge or LlmErrorKind.Server
         or LlmErrorKind.Timeout or LlmErrorKind.Network or LlmErrorKind.ModelNotFound or LlmErrorKind.Truncated
-        or LlmErrorKind.Auth;
+        or LlmErrorKind.Auth
+        or LlmErrorKind.InvalidJsonOutput;
 
     /// <summary>A message suitable for showing to the user.</summary>
     public string UserMessage => Kind switch
@@ -51,6 +54,7 @@ public sealed class LlmException : Exception
         LlmErrorKind.Timeout => "The model took too long to respond. Try again.",
         LlmErrorKind.Network => "Couldn't reach the model provider. Check your internet connection.",
         LlmErrorKind.Server => "The model provider had an error. Try again shortly.",
+        LlmErrorKind.InvalidJsonOutput => "The model's reply couldn't be understood. Try again.",
         LlmErrorKind.Cancelled => "Cancelled.",
         _ => Message,
     };
