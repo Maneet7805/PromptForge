@@ -28,6 +28,8 @@ When a provider says to wait, the runner waits (up to 20 minutes, 3 times per ca
 
 ## Set up the judge
 
+**The judge is not reliable on long drafts (#90).** On the long cases (over about 1,500 characters) the default judge reported no dropped requirements on 26 of 28 runs where the code check showed lost amounts, dates or names, and even when the rewrite was 0.1x the draft's length. Asking it to list missing points one by one did not fix that. For long drafts, trust the code checks (`dropped details`, `missing required text`, and a case's `minLengthRatio`) and treat the judge's "dropped a stated requirement" as a weak signal.
+
 The judge should be a different provider from the main model, or the same model family grades its own work. The default judge is Gemini: get a free key (Settings → Model → Google Gemini → Get a key), save it, and leave Settings → Data → Judge on `gemini`. The report's header says whether the judge was independent.
 
 ## Compare two versions of the rules
@@ -91,7 +93,7 @@ Every bad rewrite reported on GitHub becomes a case before the rules change. Use
 | `writtenIn` | The app hint, as the app sends it, e.g. `the Claude desktop app`. |
 | `mustContain` | Exact text the rewrite must keep. |
 | `maxLengthRatio` | Longest allowed rewrite, as a multiple of the draft's length. |
-| `minLengthRatio` | Shortest allowed rewrite, as a multiple of the draft's length. For drafts whose every point must survive (the long cases, #76); the judge can miss dropped points on long drafts, a length floor can't. |
+| `minLengthRatio` | Shortest allowed rewrite, as a multiple of the draft's length. For drafts whose every point must survive (the long cases, #76). |
 | `expectMinimalChange` | The draft is already good. |
 | `expectQuestions` | The draft is vague, so the review window should ask questions. |
 | `repeat` | Minimum runs for this case. |

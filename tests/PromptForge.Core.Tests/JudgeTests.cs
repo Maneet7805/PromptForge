@@ -76,14 +76,6 @@ public class JudgeTests
     }
 
     [Fact]
-    public void Judge_lists_what_is_missing_point_by_point_before_it_gives_the_dropped_verdict()
-    {
-        var text = EvalRunner.JudgeInstructions;
-        Assert.Contains("one point at a time", text);
-        Assert.True(text.IndexOf("\"dropped_examples\"", StringComparison.Ordinal) < text.IndexOf("\"dropped_requirements\"", StringComparison.Ordinal));
-    }
-
-    [Fact]
     public void Report_counts_under_delivery()
     {
         var c = DriveCase();
