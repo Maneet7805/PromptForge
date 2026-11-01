@@ -165,6 +165,7 @@ public sealed partial class OpenAiCompatibleClient(HttpClient http) : ILlmClient
             HttpStatusCode.TooManyRequests when lower.Contains("request too large") || RequestedExceedsLimit(message) => LlmErrorKind.TooLarge,
             HttpStatusCode.TooManyRequests => LlmErrorKind.RateLimit,
             HttpStatusCode.NotFound => LlmErrorKind.ModelNotFound,
+            HttpStatusCode.BadRequest when lower.Contains("failed to validate json") || lower.Contains("failed to generate json") => LlmErrorKind.InvalidJsonOutput,
             HttpStatusCode.BadRequest when lower.Contains("response_format") || lower.Contains("json mode") || lower.Contains("json_object") => LlmErrorKind.JsonModeUnsupported,
             HttpStatusCode.BadRequest when lower.Contains("model") && (lower.Contains("not found") || lower.Contains("does not exist") || lower.Contains("decommissioned") || lower.Contains("not supported")) => LlmErrorKind.ModelNotFound,
             HttpStatusCode.BadRequest when lower.Contains("api key") || lower.Contains("api_key") => LlmErrorKind.Auth,

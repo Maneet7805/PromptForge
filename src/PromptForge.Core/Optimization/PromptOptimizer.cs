@@ -153,6 +153,8 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
         };
     }
 
+    private const string JsonReminder = "Respond with only the JSON object described in your instructions.";
+
     private async Task<(ChatResponse Response, ParsedResponse Parsed, LlmEndpoint Endpoint, int Attempts)> CallWithFallbackAsync(
         IReadOnlyList<LlmEndpoint> endpoints,
         List<ChatMessage> messages,
@@ -206,7 +208,13 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                 {
                     retriedFormat = true;
                     last = ex;
-                    currentMessages = [.. messages, new ChatMessage("user", "Respond with only the JSON object described in your instructions.")];
+                    currentMessages = [.. messages, new ChatMessage("user", JsonReminder)];
+                }
+                catch (LlmException ex) when (ex.Kind == LlmErrorKind.InvalidJsonOutput && !retriedFormat)
+                {
+                    retriedFormat = true;
+                    last = ex;
+                    currentMessages = [.. messages, new ChatMessage("user", JsonReminder)];
                 }
                 catch (LlmException ex) when (ex.WorthFallingBack)
                 {

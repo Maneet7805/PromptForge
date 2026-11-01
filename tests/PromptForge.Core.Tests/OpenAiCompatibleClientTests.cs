@@ -139,6 +139,42 @@ public class OpenAiCompatibleClientTests
     }
 
     [Theory]
+    [InlineData("Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.")]
+    [InlineData("Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details.")]
+    public async Task A_400_saying_the_model_wrote_invalid_json_is_an_invalid_json_error_that_never_carries_the_model_text(string message)
+    {
+        var body = new JsonObject
+        {
+            ["error"] = new JsonObject
+            {
+                ["message"] = message,
+                ["type"] = "invalid_request_error",
+                ["code"] = "json_validate_failed",
+                ["failed_generation"] = "SECRET DRAFT TEXT",
+            },
+        }.ToJsonString();
+        var (client, _) = ClientReturning(Json(body, HttpStatusCode.BadRequest));
+
+        var ex = await Assert.ThrowsAsync<LlmException>(() => client.CompleteAsync(Endpoint, Messages, new ChatOptions(), CancellationToken.None));
+
+        Assert.Equal(LlmErrorKind.InvalidJsonOutput, ex.Kind);
+        Assert.DoesNotContain("SECRET", ex.Message);
+        Assert.DoesNotContain("SECRET", ex.UserMessage);
+        Assert.True(ex.WorthFallingBack);
+    }
+
+    [Theory]
+    [InlineData("response_format json_object is not supported with this model", LlmErrorKind.JsonModeUnsupported)]
+    [InlineData("messages must not be empty", LlmErrorKind.BadRequest)]
+    public async Task Other_400s_keep_their_kind(string message, LlmErrorKind kind)
+    {
+        var body = new JsonObject { ["error"] = new JsonObject { ["message"] = message } }.ToJsonString();
+        var (client, _) = ClientReturning(Json(body, HttpStatusCode.BadRequest));
+        var ex = await Assert.ThrowsAsync<LlmException>(() => client.CompleteAsync(Endpoint, Messages, new ChatOptions(), CancellationToken.None));
+        Assert.Equal(kind, ex.Kind);
+    }
+
+    [Theory]
     [InlineData(HttpStatusCode.Unauthorized, LlmErrorKind.Auth)]
     [InlineData(HttpStatusCode.TooManyRequests, LlmErrorKind.RateLimit)]
     [InlineData(HttpStatusCode.InternalServerError, LlmErrorKind.Server)]
