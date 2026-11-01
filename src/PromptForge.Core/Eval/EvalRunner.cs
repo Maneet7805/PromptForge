@@ -39,6 +39,9 @@ public sealed record EvalCase
     /// <summary>Upper bound on output length / input length; checks against over-expansion.</summary>
     public double? MaxLengthRatio { get; init; }
 
+    /// <summary>Lower bound on output length / input length, for drafts whose every point must survive (#90).</summary>
+    public double? MinLengthRatio { get; init; }
+
     /// <summary>True when the draft is already good and should come back unchanged or lightly edited.</summary>
     public bool ExpectMinimalChange { get; init; }
 
@@ -332,6 +335,9 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         var ratio = output.Length / (double)Math.Max(1, evalCase.Draft.Length);
         if (evalCase.MaxLengthRatio is { } max && ratio > max)
             failures.Add($"over-expanded: {ratio:0.0}x the draft (limit {max:0.0}x)");
+
+        if (evalCase.MinLengthRatio is { } min && ratio < min)
+            failures.Add($"shrunk: {ratio:0.0}x the draft (floor {min:0.0}x)");
 
         if (evalCase.ExpectQuestions && result.Questions.Count == 0)
             failures.Add("vague draft but no questions for the user");
