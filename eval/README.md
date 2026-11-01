@@ -91,6 +91,7 @@ Every bad rewrite reported on GitHub becomes a case before the rules change. Use
 | `writtenIn` | The app hint, as the app sends it, e.g. `the Claude desktop app`. |
 | `mustContain` | Exact text the rewrite must keep. |
 | `maxLengthRatio` | Longest allowed rewrite, as a multiple of the draft's length. |
+| `minLengthRatio` | Shortest allowed rewrite, as a multiple of the draft's length. For drafts whose every point must survive (the long cases, #76); the judge can miss dropped points on long drafts, a length floor can't. |
 | `expectMinimalChange` | The draft is already good. |
 | `expectQuestions` | The draft is vague, so the review window should ask questions. |
 | `repeat` | Minimum runs for this case. |

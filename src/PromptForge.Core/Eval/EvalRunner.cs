@@ -39,6 +39,9 @@ public sealed record EvalCase
     /// <summary>Upper bound on output length / input length; checks against over-expansion.</summary>
     public double? MaxLengthRatio { get; init; }
 
+    /// <summary>Lower bound on output length / input length, for drafts whose every point must survive (#90).</summary>
+    public double? MinLengthRatio { get; init; }
+
     /// <summary>True when the draft is already good and should come back unchanged or lightly edited.</summary>
     public bool ExpectMinimalChange { get; init; }
 
@@ -333,6 +336,9 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         if (evalCase.MaxLengthRatio is { } max && ratio > max)
             failures.Add($"over-expanded: {ratio:0.0}x the draft (limit {max:0.0}x)");
 
+        if (evalCase.MinLengthRatio is { } min && ratio < min)
+            failures.Add($"shrunk: {ratio:0.0}x the draft (floor {min:0.0}x)");
+
         if (evalCase.ExpectQuestions && result.Questions.Count == 0)
             failures.Add("vague draft but no questions for the user");
 
@@ -362,8 +368,8 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         {"answered_instead_of_rewriting": true/false (true if the rewrite performs or answers the task rather than being a prompt that asks for it. When the draft asks for text to be written, edited, translated or reworded ("make this sound more professional: ..."), the rewrite must still be that request with the text inside it; returning the finished text itself is answering),
          "invented_details": true/false (true if the rewrite states as fact specific details the draft did not state or clearly imply: technologies, numbers, deadlines, audiences, product names or requirements; asking the AI to check something, state assumptions or ask questions is fine),
          "invented_examples": "the invented details, or empty",
-         "dropped_requirements": true/false (true if the draft states a rule, criterion, condition, preference or item to cover, however casually, and the rewrite leaves it out or weakens it),
-         "dropped_examples": "what was dropped, or empty",
+         "dropped_examples": "fill this in before the true/false answers. Go through the draft one point at a time, and the must_cover list one item at a time; for each, find the line of the rewrite that carries it. List every rule, criterion, condition, preference, name, number, date or item you cannot find or that the rewrite weakens, or empty. A long draft makes this easy to skip: check every point anyway",
+         "dropped_requirements": true/false (true if dropped_examples is not empty: the draft states a rule, criterion, condition, preference or item to cover, however casually, and the rewrite leaves it out or weakens it),
          "changed_intent": true/false (true if the rewrite changes what kind of message the draft is: a question became an instruction or the reverse; a statement, report or answer became a request or a question; a standing instruction ("whenever", "from now on") became a one-off task; the requested action changed, e.g. "fix" became "explain" or "set up" became "plan"; or pasted context was turned into the task),
          "written_as_reply": true/false (true if any part of the rewrite is written as the AI's reply to the user instead of the user's own message: offering help, asking the user what they want, or asking the user to supply details),
          "added_requests": true/false (true only if the rewrite adds something that serves no goal the draft states: a new goal or task; a deliverable, format, count or length the draft's goals don't call for; a role line or generic advice that changes nothing, such as "be thorough" or "follow best practices"; or a fallback such as "if you need more details, ask me first". Turning a stated goal into the steps or checks it requires is not an added request: "make sure nothing breaks" may become plan, wait for approval, work in small batches, verify. Suggestions clearly labelled as optional are not added requests),

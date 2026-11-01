@@ -284,6 +284,54 @@ public class EvalGradingTests
     }
 
     [Fact]
+    public void Flags_a_rewrite_that_shrinks_below_the_cases_floor()
+    {
+        var draft = string.Join(' ', Enumerable.Repeat("keep the amount RM 8,000 and every other point", 20));
+        var c = new EvalCase { Id = "t", Category = "long", Draft = draft, MinLengthRatio = 0.5 };
+
+        var shrunk = EvalRunner.Grade(c, Result(draft, "Keep the amount RM 8,000."));
+        var kept = EvalRunner.Grade(c, Result(draft, draft[..(draft.Length * 6 / 10)]));
+
+        Assert.Contains(shrunk, f => f.StartsWith("shrunk:"));
+        Assert.DoesNotContain(kept, f => f.StartsWith("shrunk:"));
+    }
+
+    [Fact]
+    public void Cases_without_a_floor_may_shrink()
+    {
+        var c = new EvalCase { Id = "t", Category = "long", Draft = new string('a', 600) + " fix this" };
+        Assert.DoesNotContain(EvalRunner.Grade(c, Result(c.Draft, "Fix this.")), f => f.StartsWith("shrunk:"));
+    }
+
+    [Fact]
+    public void The_length_floor_is_read_from_the_case_file()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        File.WriteAllText(path, """[{"id":"a","category":"long","draft":"x","expect":"Clarify","minLengthRatio":0.5},{"id":"b","category":"long","draft":"y","expect":"Clarify"}]""");
+        try
+        {
+            var cases = EvalRunner.LoadCases(path);
+            Assert.Equal(0.5, cases[0].MinLengthRatio);
+            Assert.Null(cases[1].MinLengthRatio);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Every_long_case_has_a_length_floor()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "eval", "cases.json"))) dir = Path.GetDirectoryName(dir);
+        Assert.NotNull(dir);
+        var longCases = EvalRunner.LoadCases(Path.Combine(dir!, "eval", "cases.json")).Where(c => c.Draft.Length > 1000).ToList();
+        Assert.NotEmpty(longCases);
+        Assert.All(longCases, c => Assert.NotNull(c.MinLengthRatio));
+    }
+
+    [Fact]
     public void Clean_result_passes()
     {
         var c = new EvalCase { Id = "t", Category = "coding", Draft = "fix getUser in users.ts", MaxLengthRatio = 20 };
