@@ -321,6 +321,17 @@ public class EvalGradingTests
     }
 
     [Fact]
+    public void Every_required_text_appears_in_its_own_draft()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "eval", "cases.json"))) dir = Path.GetDirectoryName(dir);
+        Assert.NotNull(dir);
+        foreach (var c in EvalRunner.LoadCases(Path.Combine(dir!, "eval", "cases.json")))
+            foreach (var required in c.MustContain)
+                Assert.True(c.Draft.Contains(required, StringComparison.Ordinal), $"{c.Id}: \"{required}\" is not in the draft");
+    }
+
+    [Fact]
     public void Every_long_case_has_a_length_floor()
     {
         var dir = AppContext.BaseDirectory;
