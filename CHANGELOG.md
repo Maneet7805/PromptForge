@@ -8,6 +8,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - The running version now shows in the tray menu ("PromptForge 1.2.0") and at the bottom of the Settings window (#84).
 - Quality check: three long synthetic drafts (about 1,600, 3,800 and 7,400 characters, 11 to 13 points each), each in Standard and Detailed, so dropped points and shrinking on long input can be measured (#76).
 - Quality check: a per-case `minLengthRatio` (set to 0.5 on the long cases) fails a rewrite that shrinks below it. The README now says the judge can't be trusted to see dropped points on long drafts (#90).
+- PromptForge now appears in Settings → Apps → Installed apps with an Uninstall button. Uninstall removes the app, its Start menu shortcut and its start-with-Windows entry, and asks before deleting your settings and API keys (default: keep). The entry is added when you install or update (#86).
 
 ### Fixed
 - When the model's reply isn't valid JSON (Groq: "Failed to validate JSON", seen on long drafts in Detailed mode), PromptForge now retries once and then tries the fallback model, instead of stopping with an error (#88).
