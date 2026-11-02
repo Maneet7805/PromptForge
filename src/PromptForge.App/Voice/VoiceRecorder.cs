@@ -1,4 +1,3 @@
-using NAudio.Utils;
 using NAudio.Wave;
 
 namespace PromptForge.App.Voice;
@@ -60,7 +59,7 @@ internal sealed class VoiceRecorder : IDisposable
     internal static byte[] ToWav(byte[] pcm)
     {
         using var output = new MemoryStream();
-        using (var writer = new WaveFileWriter(new IgnoreDisposeStream(output), Format))
+        using (var writer = new WaveFileWriter(output, Format))
         {
             writer.Write(pcm, 0, pcm.Length);
         }
