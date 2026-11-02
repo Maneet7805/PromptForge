@@ -1,6 +1,7 @@
 using PromptForge.App.Native;
 using PromptForge.App.TextAccess;
 using PromptForge.App.UI;
+using PromptForge.Core.Llm;
 using PromptForge.Core.Optimization;
 using PromptForge.Core.Settings;
 
@@ -170,7 +171,17 @@ internal sealed class OptimizeController(AppServices services)
             PersonalContext = string.IsNullOrWhiteSpace(settings.PersonalContext) ? null : settings.PersonalContext,
             WrittenIn = settings.SendAppHint ? appLabel : null,
         };
-        var result = await services.Optimizer.OptimizeAsync(request, endpoints, services.OptimizerOptions, ct);
+        OptimizeResult result;
+        try
+        {
+            result = await services.Optimizer.OptimizeAsync(request, endpoints, services.OptimizerOptions, ct);
+        }
+        catch (OptimizeException ex) when (ex.InnerException is LlmException llm)
+        {
+            // Event data only: the failure kind, the provider's limit numbers, and sizes. Never the prompt or the provider's message.
+            Log.Warn($"optimise failed failure={ex.Failure} {llm.LogSummary} mode={mode} chars={text.Length}");
+            throw;
+        }
         Log.Info($"optimised task={result.TaskType} verdict={result.Verdict} model={result.Model} ms={result.Elapsed.TotalMilliseconds:0} " +
                  $"tokens={result.PromptTokens}/{result.CachedTokens}c/{result.CompletionTokens} attempts={result.Attempts} warnings={result.Warnings.Count}");
         return result;
