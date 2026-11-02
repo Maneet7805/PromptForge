@@ -14,11 +14,13 @@ public sealed class UpdateException(string message, Exception? inner = null) : E
 /// Sends one anonymous request to api.github.com; no prompt text, settings or keys are involved.
 /// Installing is left to the caller (the downloaded exe installs itself like a manual download).
 /// </summary>
-public sealed class UpdateChecker(HttpClient http, string repository = UpdateChecker.DefaultRepository)
+public sealed class UpdateChecker(HttpClient http, string repository = UpdateChecker.DefaultRepository, TimeProvider? time = null)
 {
     public const string DefaultRepository = "Maneet7805/PromptForge";
     public const string ExeAssetName = "PromptForge.exe";
     public const string ChecksumsAssetName = "SHA256SUMS.txt";
+
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     private static readonly TimeSpan CheckTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(5);
@@ -37,7 +39,7 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
             using var response = await http.SendAsync(request, timeout.Token).ConfigureAwait(false);
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null; // no releases yet
             if (!response.IsSuccessStatusCode)
-                throw new UpdateException($"GitHub answered {(int)response.StatusCode} when checking for updates.");
+                throw new UpdateException(RateLimitMessage(response) ?? $"GitHub answered {(int)response.StatusCode} when checking for updates.");
             var json = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
             var latest = ParseLatestRelease(json);
             return latest is not null && IsNewer(latest.Version, currentVersion) ? latest : null;
@@ -47,6 +49,30 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
             throw new UpdateException("Couldn't reach GitHub to check for updates.", ex);
         }
     }
+
+    /// <summary>
+    /// GitHub allows 60 anonymous API requests an hour per internet address, so a shared network can use the
+    /// allowance up. GitHub says so in the response headers; returns null when this isn't that case.
+    /// </summary>
+    private string? RateLimitMessage(HttpResponseMessage response)
+    {
+        if (response.StatusCode is not (System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.TooManyRequests)) return null;
+
+        var now = _time.GetUtcNow();
+        TimeSpan? wait = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - now);
+        var usedUp = wait is not null || FirstHeader(response, "x-ratelimit-remaining") == "0";
+        if (!usedUp) return null;
+
+        if (wait is null && long.TryParse(FirstHeader(response, "x-ratelimit-reset"), out var resetSeconds))
+            wait = DateTimeOffset.FromUnixTimeSeconds(resetSeconds) - now;
+
+        const string prefix = "GitHub is limiting update checks from your network.";
+        if (wait is not { } w) return prefix + " Try again later.";
+        return $"{prefix} Try again in about {Math.Max(1, (int)Math.Ceiling(w.TotalMinutes))} min.";
+    }
+
+    private static string? FirstHeader(HttpResponseMessage response, string name) =>
+        response.Headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
 
     /// <summary>
     /// Downloads the release exe into <paramref name="directory"/> and checks it against the release's

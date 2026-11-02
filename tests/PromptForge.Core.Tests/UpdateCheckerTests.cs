@@ -87,6 +87,83 @@ public class UpdateCheckerTests
         Assert.Contains("PromptForge", seen.Headers.UserAgent.ToString());
     }
 
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private static readonly DateTimeOffset Now = new(2026, 11, 2, 3, 0, 0, TimeSpan.Zero);
+
+    private static UpdateChecker CheckerAnswering(HttpStatusCode status, Action<HttpResponseMessage>? configure = null) =>
+        new(new HttpClient(new FakeHandler(_ =>
+        {
+            var response = new HttpResponseMessage(status);
+            configure?.Invoke(response);
+            return response;
+        })), time: new FixedClock(Now));
+
+    [Fact]
+    public async Task A_used_up_rate_limit_says_so_and_when_to_try_again()
+    {
+        var reset = Now.AddMinutes(7).AddSeconds(12).ToUnixTimeSeconds().ToString();
+        var checker = CheckerAnswering(HttpStatusCode.Forbidden, r =>
+        {
+            r.Headers.Add("x-ratelimit-remaining", "0");
+            r.Headers.Add("x-ratelimit-reset", reset);
+        });
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() => checker.CheckAsync("1.0.0"));
+
+        Assert.Equal("GitHub is limiting update checks from your network. Try again in about 8 min.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Retry_after_is_used_when_there_is_no_reset_time()
+    {
+        var checker = CheckerAnswering(HttpStatusCode.TooManyRequests, r => r.Headers.Add("Retry-After", "90"));
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() => checker.CheckAsync("1.0.0"));
+
+        Assert.Equal("GitHub is limiting update checks from your network. Try again in about 2 min.", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_rate_limit_without_a_reset_time_says_to_try_later()
+    {
+        var checker = CheckerAnswering(HttpStatusCode.Forbidden, r => r.Headers.Add("x-ratelimit-remaining", "0"));
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() => checker.CheckAsync("1.0.0"));
+
+        Assert.Equal("GitHub is limiting update checks from your network. Try again later.", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_reset_time_in_the_past_still_asks_for_at_least_a_minute()
+    {
+        var reset = Now.AddSeconds(-30).ToUnixTimeSeconds().ToString();
+        var checker = CheckerAnswering(HttpStatusCode.Forbidden, r =>
+        {
+            r.Headers.Add("x-ratelimit-remaining", "0");
+            r.Headers.Add("x-ratelimit-reset", reset);
+        });
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() => checker.CheckAsync("1.0.0"));
+
+        Assert.Equal("GitHub is limiting update checks from your network. Try again in about 1 min.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden, 403)]
+    [InlineData(HttpStatusCode.InternalServerError, 500)]
+    public async Task Other_errors_keep_the_plain_message(HttpStatusCode status, int code)
+    {
+        var checker = CheckerAnswering(status, r => r.Headers.Add("x-ratelimit-remaining", "12"));
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() => checker.CheckAsync("1.0.0"));
+
+        Assert.Equal($"GitHub answered {code} when checking for updates.", ex.Message);
+    }
+
     [Fact]
     public async Task Network_failure_becomes_an_update_exception()
     {
