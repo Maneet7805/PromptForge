@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace PromptForge.Core.Llm;
 
 public enum LlmErrorKind
@@ -23,7 +25,7 @@ public enum LlmErrorKind
     InvalidJsonOutput,
 }
 
-public sealed class LlmException : Exception
+public sealed partial class LlmException : Exception
 {
     public LlmException(LlmErrorKind kind, string message, TimeSpan? retryAfter = null, Exception? inner = null)
         : base(message, inner)
@@ -34,6 +36,19 @@ public sealed class LlmException : Exception
 
     public LlmErrorKind Kind { get; }
     public TimeSpan? RetryAfter { get; }
+
+    /// <summary>
+    /// Kind plus, when the provider reported them, its token limit and the size requested ("Limit 8000, Requested 9500").
+    /// Digits and the error kind only, so it is safe to log: it never contains the provider's message or any prompt text.
+    /// </summary>
+    public string LogSummary
+    {
+        get
+        {
+            var m = LimitRequestedRegex().Match(Message);
+            return m.Success ? $"llmError={Kind} limit={m.Groups["limit"].Value} requested={m.Groups["req"].Value}" : $"llmError={Kind}";
+        }
+    }
 
     /// <summary>Whether trying another model or provider might succeed.</summary>
     public bool WorthFallingBack => Kind is LlmErrorKind.RateLimit or LlmErrorKind.TooLarge or LlmErrorKind.Server
@@ -58,4 +73,7 @@ public sealed class LlmException : Exception
         LlmErrorKind.Cancelled => "Cancelled.",
         _ => Message,
     };
+
+    [GeneratedRegex(@"Limit\s+(?<limit>\d+).*?Requested\s+(?<req>\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex LimitRequestedRegex();
 }

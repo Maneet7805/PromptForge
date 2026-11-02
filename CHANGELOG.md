@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Changed
+- The log now records why a rewrite failed: the error kind, the provider's token limit and requested size when it reports them, the mode and the draft length. Never the prompt or the provider's message. This is so "too long for the free-tier limit" errors can be diagnosed (#101).
+
 ## [1.3.0] - 2026-11-02
 
 ### Added

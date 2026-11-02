@@ -33,6 +33,21 @@ public class ErrorMappingTests
         Assert.Equal(LlmErrorKind.TooLarge, ex.Kind);
     }
 
+    [Fact]
+    public void Log_summary_has_the_kind_and_size_numbers_only()
+    {
+        var ex = Map(HttpStatusCode.TooManyRequests,
+            """{"error":{"message":"Request too large for model `openai/gpt-oss-120b` on tokens per minute (TPM): Limit 8000, Requested 12000."}}""");
+        Assert.Equal("llmError=TooLarge limit=8000 requested=12000", ex.LogSummary);
+    }
+
+    [Fact]
+    public void Log_summary_without_numbers_has_the_kind_only()
+    {
+        var ex = Map(HttpStatusCode.Unauthorized, """{"error":{"message":"Invalid API key sk-test-123"}}""");
+        Assert.Equal("llmError=Auth", ex.LogSummary);
+    }
+
     [Theory]
     [InlineData("450ms", 0.45)]
     [InlineData("1m3s", 63)]
