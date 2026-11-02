@@ -4,6 +4,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-02
+
 ### Added
 - The running version now shows in the tray menu ("PromptForge 1.2.0") and at the bottom of the Settings window (#84).
 - Quality check: three long synthetic drafts (about 1,600, 3,800 and 7,400 characters, 11 to 13 points each), each in Standard and Detailed, so dropped points and shrinking on long input can be measured (#76).
@@ -115,6 +117,7 @@ First public release. It contains everything from the 0.x builds plus the fixes 
 ### Added
 - Initial personal build: core optimiser, tray app, review window, settings, voice and eval runner.
 
+[1.3.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.3.0
 [1.2.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.2.0
 [1.1.1]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.1.0
