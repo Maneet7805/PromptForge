@@ -11,6 +11,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ### Fixed
 - When the model's reply isn't valid JSON (Groq: "Failed to validate JSON", seen on long drafts in Detailed mode), PromptForge now retries once and then tries the fallback model, instead of stopping with an error (#88).
+- "Check for updates" now says when GitHub is limiting requests from your network and when to try again, instead of only "GitHub answered 403" (#95).
 
 ## [1.2.0] - 2026-10-30
 
