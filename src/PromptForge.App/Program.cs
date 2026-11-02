@@ -24,6 +24,9 @@ internal static class Program
         if (args.Length > 0 && args[0] == "--rejudge")
             return EvalCommand.Rejudge(args[1..]);
 
+        if (args.Length > 0 && args[0] == "--uninstall")
+            return SelfInstaller.Uninstall();
+
         // A copy run from anywhere else (e.g. the dist folder) offers to install or update itself.
         if (!SelfInstaller.IsRunningFromInstallDir && !args.Contains("--portable") && SelfInstaller.OfferInstall())
             return 0;
