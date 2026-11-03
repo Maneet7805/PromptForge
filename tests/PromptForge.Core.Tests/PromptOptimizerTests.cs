@@ -197,6 +197,87 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task Repair_outcome_is_restored_when_the_second_call_brings_details_back()
+    {
+        var replies = new Queue<string>([
+            Json("Fix the null result in the users module."),
+            Json("Fix getUser in src/api/users.ts so it no longer returns null."),
+        ]);
+        var result = await new PromptOptimizer(new FakeClient(_ => replies.Dequeue())).OptimizeAsync(
+            new OptimizeRequest { Text = "getUser in src/api/users.ts returns null fix" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+        Assert.True(result.MissingBeforeRepair > 0);
+        Assert.Equal(0, result.MissingAfterRepair);
+        Assert.Null(result.RepairFailure);
+        Assert.Empty(result.FailedCalls);
+    }
+
+    [Fact]
+    public async Task Repair_outcome_is_no_improvement_when_details_stay_missing()
+    {
+        var result = await new PromptOptimizer(new FakeClient(_ => Json("Fix the users module."))).OptimizeAsync(
+            new OptimizeRequest { Text = "fix getUser in users.ts" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.NoImprovement, result.Repair);
+        Assert.True(result.MissingBeforeRepair > 0);
+        Assert.Equal(result.MissingBeforeRepair, result.MissingAfterRepair);
+    }
+
+    [Fact]
+    public async Task A_failed_repair_call_is_recorded_with_its_kind_and_numbers_only()
+    {
+        var calls = 0;
+        var client = new FakeClient(_ => ++calls == 1
+            ? Json("Fix the users module.")
+            : throw new LlmException(LlmErrorKind.TooLarge, "Request too large. Limit 8000, Requested 9100. secret draft text"));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "fix getUser in users.ts" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.Failed, result.Repair);
+        Assert.Equal("llmError=TooLarge limit=8000 requested=9100", result.RepairFailure);
+        Assert.Equal(result.MissingBeforeRepair, result.MissingAfterRepair);
+        Assert.Contains(result.Warnings, w => w.Contains("getUser"));
+        Assert.Equal(1, result.Attempts);
+    }
+
+    [Fact]
+    public async Task Repair_outcome_is_disabled_when_the_setting_is_off()
+    {
+        var client = new FakeClient(_ => Json("Fix the users module."));
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "fix getUser in users.ts" }, [Primary], new OptimizerOptions { RepairDroppedDetails = false });
+
+        Assert.Equal(RepairOutcome.Disabled, result.Repair);
+        Assert.Single(client.Calls);
+    }
+
+    [Fact]
+    public async Task Repair_outcome_is_not_needed_when_nothing_is_missing()
+    {
+        var result = await new PromptOptimizer(new FakeClient(_ => Json("Explain closures in JavaScript."))).OptimizeAsync(
+            new OptimizeRequest { Text = "explain closures js" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.NotNeeded, result.Repair);
+        Assert.Equal(0, result.MissingBeforeRepair);
+        Assert.Empty(result.FailedCalls);
+    }
+
+    [Fact]
+    public async Task A_fallback_records_why_the_first_model_failed()
+    {
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model"
+            ? throw new LlmException(LlmErrorKind.RateLimit, "Rate limit reached. Limit 8000, Used 7000, Requested 2000. secret draft text")
+            : Json("From fallback."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal(["big-model llmError=RateLimit limit=8000 requested=2000"], result.FailedCalls);
+        Assert.DoesNotContain("secret", string.Join(" ", result.FailedCalls));
+    }
+
+    [Fact]
     public async Task Warns_when_repair_does_not_restore_details()
     {
         var client = new FakeClient(_ => Json("Fix the users module."));
