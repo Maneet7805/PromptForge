@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds PromptForge.app and PromptForge-macOS-<arch>.zip on a Mac.
+# Builds PromptForge.app, PromptForge-macOS-<arch>.dmg (for people installing) and
+# PromptForge-macOS-<arch>.zip (for the in-app updater, which downloads it by name) on a Mac.
 #
 #   installer/macos/build-app.sh [arm64|x64]        (default: this Mac's processor)
 #
@@ -21,6 +22,7 @@ PROJECT="$ROOT/src/PromptForge.Mac/PromptForge.Mac.csproj"
 OUT="$ROOT/dist/macos-$ARCH"
 APP="$OUT/PromptForge.app"
 ZIP="$OUT/PromptForge-macOS-$ARCH.zip"
+DMG="$OUT/PromptForge-macOS-$ARCH.dmg"
 VERSION="$(dotnet msbuild "$PROJECT" -getProperty:Version)"
 
 echo "Building PromptForge $VERSION for macOS $ARCH"
@@ -69,6 +71,32 @@ if [[ -n "${NOTARY_PROFILE:-}" && -n "${SIGN_IDENTITY:-}" ]]; then
   ditto -c -k --keepParent "$APP" "$ZIP"
 fi
 
+# Disk image: the app next to a link to Applications, so installing is one drag. Built after the app is
+# stapled, so the ticket travels inside it.
+DMG_STAGE="$OUT/dmg"
+mkdir -p "$DMG_STAGE"
+ditto "$APP" "$DMG_STAGE/PromptForge.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+# hdiutil sometimes fails with "Resource busy" on CI machines; a retry clears it.
+HDIUTIL_ATTEMPTS=3
+for attempt in $(seq 1 $HDIUTIL_ATTEMPTS); do
+  if hdiutil create -volname "PromptForge $VERSION" -srcfolder "$DMG_STAGE" -fs HFS+ -format UDZO -ov "$DMG"; then
+    break
+  fi
+  if [[ $attempt -eq $HDIUTIL_ATTEMPTS ]]; then echo "hdiutil failed $HDIUTIL_ATTEMPTS times" >&2; exit 1; fi
+  sleep 5
+done
+rm -rf "$DMG_STAGE"
+
+# An ad-hoc signature on the disk image adds nothing, so it is only signed with a Developer ID.
+if [[ -n "${SIGN_IDENTITY:-}" ]]; then
+  codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
+  if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+    xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+    xcrun stapler staple "$DMG"
+  fi
+fi
+
 rm -rf "$OUT/publish"
-shasum -a 256 "$ZIP"
+shasum -a 256 "$ZIP" "$DMG"
 echo "Done: $APP"

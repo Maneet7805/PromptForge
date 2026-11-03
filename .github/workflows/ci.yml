@@ -57,5 +57,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: PromptForge-${{ github.sha }}-macOS-arm64
-          path: dist/macos-arm64/PromptForge-macOS-arm64.zip
+          path: |
+            dist/macos-arm64/PromptForge-macOS-arm64.dmg
+            dist/macos-arm64/PromptForge-macOS-arm64.zip
           retention-days: 14

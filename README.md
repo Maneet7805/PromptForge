@@ -60,15 +60,22 @@ Most prompts are typed in a hurry: no deliverable, missing context, details buri
 ### Mac
 
 1. **Get a free API key** at <https://console.groq.com/keys>.
-2. **Download** `PromptForge-macOS-arm64.zip` (Apple silicon: M1 and later) or `PromptForge-macOS-x64.zip` (Intel) from the [latest release](https://github.com/Maneet7805/PromptForge/releases/latest), unzip it, and drag **PromptForge.app** into **Applications**. It needs macOS 13 (Ventura) or later.
-3. Release builds aren't notarized by Apple, so the first time, **right-click PromptForge.app → Open → Open**. (Or verify the zip against `SHA256SUMS.txt` first: `shasum -a 256 PromptForge-macOS-arm64.zip`.)
-4. PromptForge appears in the menu bar, not the Dock. macOS asks you to allow it under **System Settings → Privacy & Security → Accessibility**: that's what lets it copy your text and paste the result. It never sees keystrokes other than its own shortcuts.
-5. Settings opens on the **Model** tab. Paste your key (it's stored in your login Keychain), click **Test connection**, then **Save**. Turn on **Open PromptForge when you log in** in General if you like.
-6. Click into any text box, type a rough prompt, and press <kbd>⌃</kbd><kbd>⌥</kbd><kbd>P</kbd>.
+2. **Download the disk image for your Mac** (needs macOS 13 Ventura or later):
+   - **[Apple silicon (M1 and later)](https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge-macOS-arm64.dmg)**
+   - **[Intel](https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge-macOS-x64.dmg)**
+   - Not sure? Apple menu → **About This Mac**. "Chip: Apple M…" means Apple silicon; "Processor: Intel" means Intel.
+3. **Open the .dmg and drag PromptForge onto Applications.** Then eject the disk image.
+4. **Open it the first time.** Release builds aren't notarized by Apple (that needs a paid developer account), so macOS blocks the first launch:
+   - macOS 15 Sequoia and later: open PromptForge from Applications, click **Done** on the warning, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**, and confirm.
+   - macOS 13–14: **right-click PromptForge.app → Open → Open**.
+   - To check the download first: `shasum -a 256 PromptForge-macOS-arm64.dmg` and compare with `SHA256SUMS.txt` in the release.
+5. PromptForge appears in the menu bar, not the Dock. macOS asks you to allow it under **System Settings → Privacy & Security → Accessibility**: that's what lets it copy your text and paste the result. It never sees keystrokes other than its own shortcuts.
+6. Settings opens on the **Model** tab. Paste your key (it's stored in your login Keychain), click **Test connection**, then **Save**. Turn on **Open PromptForge when you log in** in General if you like.
+7. Click into any text box, type a rough prompt, and press <kbd>⌃</kbd><kbd>⌥</kbd><kbd>P</kbd>.
 
 On a Mac, the same shortcuts use Control and Option: <kbd>⌃</kbd><kbd>⌥</kbd><kbd>P</kbd> optimise, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd> selection, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>D</kbd> voice. Shortcuts must include <kbd>⌃</kbd> or <kbd>⌘</kbd>, because Option alone types characters. In the review window, use <kbd>⌘</kbd> where Windows uses <kbd>Ctrl</kbd> (<kbd>⌘</kbd><kbd>↩</kbd> replace, <kbd>⇧</kbd><kbd>⌘</kbd><kbd>C</kbd> copy, <kbd>⌘</kbd><kbd>R</kbd> re-run).
 
-**Mac update:** when a new version is out, click the notification. The zip is checked against `SHA256SUMS.txt`; an app signed with a Developer ID is then only installed if it's signed by the same developer as your copy. Unsigned release builds can't prove that, so PromptForge shows the checked app in Finder for you to drag into Applications.
+**Mac update:** when a new version is out, click the notification. It downloads the release's `.zip` (same app as the `.dmg`), checked against `SHA256SUMS.txt`; an app signed with a Developer ID is then only installed if it's signed by the same developer as your copy. Unsigned release builds can't prove that, so PromptForge shows the checked app in Finder for you to drag into Applications.
 **Mac uninstall:** Settings → Data → **Delete all PromptForge data…** (removes settings, logs, Keychain keys and the login item), then drag PromptForge.app to the Bin.
 
 ## Usage
@@ -208,7 +215,7 @@ dotnet publish src/PromptForge.App -c Release -o publish
 The output is a single self-contained `publish/PromptForge.exe` (~72 MB). For the Mac app, run this on a Mac (it needs Xcode's command-line tools for `codesign`, `sips` and `iconutil`):
 
 ```bash
-installer/macos/build-app.sh            # this Mac's processor; or pass arm64 / x64
+installer/macos/build-app.sh            # this Mac's processor; or pass arm64 / x64. Makes the .app, .dmg and .zip
 open dist/macos-arm64/PromptForge.app
 ```
 

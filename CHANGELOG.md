@@ -7,6 +7,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 ### Added
 - **macOS app** (macOS 13+, Apple silicon and Intel): a menu bar app with the same optimise, selection and voice shortcuts (⌃⌥P, ⌃⌥⇧P, ⌃⌥D), review window, settings and quality check. Keys live in the login Keychain, start at login uses Login Items, and releases include `PromptForge-macOS-arm64.zip` and `PromptForge-macOS-x64.zip`. Build it with `installer/macos/build-app.sh`.
 
+- **Mac disk images:** releases include `PromptForge-macOS-arm64.dmg` and `PromptForge-macOS-x64.dmg`; open one and drag PromptForge onto Applications. The README now links them directly, says how to tell Apple silicon from Intel, and gives the macOS 15 **Open Anyway** step for the first launch (#106).
+
 ### Changed
 - The log now records why a rewrite failed: the error kind, the provider's token limit and requested size when it reports them, the mode and the draft length. Never the prompt or the provider's message. This is so "too long for the free-tier limit" errors can be diagnosed (#101).
 

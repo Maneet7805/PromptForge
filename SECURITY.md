@@ -25,14 +25,14 @@ This is useful context for judging a report:
 
 ## Unsigned builds
 
-Release builds aren't code-signed (Windows) or notarized (Mac), so Windows SmartScreen warns on first run and macOS asks you to right-click → Open the first time. Every release lists a SHA-256 checksum in `SHA256SUMS.txt`. Verify your download:
+Release builds aren't code-signed (Windows) or notarized (Mac), so Windows SmartScreen warns on first run and macOS blocks the first launch (macOS 15 and later: System Settings → Privacy & Security → **Open Anyway**; macOS 13–14: right-click → Open). Every release lists a SHA-256 checksum in `SHA256SUMS.txt`. Verify your download:
 
 ```powershell
 Get-FileHash .\PromptForge.exe -Algorithm SHA256
 ```
 
 ```bash
-shasum -a 256 PromptForge-macOS-arm64.zip
+shasum -a 256 PromptForge-macOS-arm64.dmg
 codesign --verify --deep --strict PromptForge.app
 ```
 
