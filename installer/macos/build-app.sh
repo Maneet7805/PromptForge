@@ -45,15 +45,16 @@ rm "$ICONSET/icon_64x64.png"
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/PromptForge.icns"
 rm -rf "$ICONSET"
 
-# Sign every file in Contents/MacOS first (codesign treats that folder as code, and the .NET publish
-# output keeps its managed assemblies next to the native ones), then the bundle itself.
+# Sign every file in Contents/MacOS except the main executable first (codesign treats that folder as
+# code, and the .NET publish output keeps its managed assemblies next to the native ones). Signing the
+# bundle last also signs the main executable, which must come after everything beside it.
 if [[ -n "${SIGN_IDENTITY:-}" ]]; then
   SIGN=(codesign --force --timestamp --options runtime --entitlements "$ROOT/installer/macos/PromptForge.entitlements" --sign "$SIGN_IDENTITY")
 else
   echo "SIGN_IDENTITY not set: signing ad-hoc."
   SIGN=(codesign --force --sign -)
 fi
-find "$APP/Contents/MacOS" -type f -print0 | while IFS= read -r -d '' file; do
+find "$APP/Contents/MacOS" -type f ! -path "$APP/Contents/MacOS/PromptForge" -print0 | while IFS= read -r -d '' file; do
   "${SIGN[@]}" "$file"
 done
 "${SIGN[@]}" "$APP"
