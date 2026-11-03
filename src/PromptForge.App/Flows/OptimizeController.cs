@@ -183,7 +183,10 @@ internal sealed class OptimizeController(AppServices services)
             throw;
         }
         Log.Info($"optimised task={result.TaskType} verdict={result.Verdict} model={result.Model} ms={result.Elapsed.TotalMilliseconds:0} " +
-                 $"tokens={result.PromptTokens}/{result.CachedTokens}c/{result.CompletionTokens} attempts={result.Attempts} warnings={result.Warnings.Count}");
+                 $"tokens={result.PromptTokens}/{result.CachedTokens}c/{result.CompletionTokens} attempts={result.Attempts} warnings={result.Warnings.Count} " +
+                 $"repair={result.Repair} missing={result.MissingBeforeRepair}->{result.MissingAfterRepair}" +
+                 (result.RepairFailure is null ? "" : $" repairError=({result.RepairFailure})") +
+                 (result.FailedCalls.Count == 0 ? "" : $" failedCalls=[{string.Join("; ", result.FailedCalls)}]"));
         return result;
     }
 

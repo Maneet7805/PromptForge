@@ -74,18 +74,29 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             Timeout = options.Timeout,
         };
 
-        var (response, parsed, endpoint, attempts) = await CallWithFallbackAsync(endpoints, messages, chatOptions, options, ct).ConfigureAwait(false);
+        var failedCalls = new List<string>();
+        var (response, parsed, endpoint, attempts) = await CallWithFallbackAsync(endpoints, messages, chatOptions, options, failedCalls, ct).ConfigureAwait(false);
         var promptTokens = response.PromptTokens;
         var completionTokens = response.CompletionTokens;
         var cachedTokens = response.CachedTokens;
         var warnings = new List<string>();
 
         // Repair pass: exact details (paths, numbers, identifiers...) that the rewrite dropped.
-        if (parsed.Verdict != Verdict.Unchanged && options.RepairDroppedDetails)
+        var repairOutcome = RepairOutcome.NotNeeded;
+        string? repairFailure = null;
+        var missingBefore = 0;
+        var missingAfter = 0;
+        if (parsed.Verdict != Verdict.Unchanged && !options.RepairDroppedDetails)
+        {
+            repairOutcome = RepairOutcome.Disabled;
+        }
+        else if (parsed.Verdict != Verdict.Unchanged)
         {
             var missing = PreservationChecker.FindMissing(masked.Text, parsed.Prompt);
             if (missing.Count > 0)
             {
+                missingBefore = missing.Count;
+                repairOutcome = RepairOutcome.NoImprovement;
                 try
                 {
                     var repairMessages = new List<ChatMessage>(messages)
@@ -103,14 +114,18 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                         PreservationChecker.FindMissing(masked.Text, repaired.Prompt).Count < missing.Count)
                     {
                         parsed = repaired with { Changes = parsed.Changes, Questions = parsed.Questions };
+                        repairOutcome = RepairOutcome.Restored;
                     }
                 }
                 catch (Exception ex) when (ex is LlmException { Kind: not LlmErrorKind.Cancelled } or ResponseFormatException)
                 {
                     // Keep the first rewrite; the warning below tells the user what to check.
+                    repairOutcome = RepairOutcome.Failed;
+                    repairFailure = Describe(ex);
                 }
 
                 var stillMissing = PreservationChecker.FindMissing(masked.Text, parsed.Prompt);
+                missingAfter = stillMissing.Count;
                 if (stillMissing.Count > 0)
                     warnings.Add("Check these details from your draft; they may have been dropped: " + string.Join(", ", stillMissing.Take(8)));
             }
@@ -150,6 +165,11 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             CompletionTokens = completionTokens,
             CachedTokens = cachedTokens,
             Attempts = attempts,
+            Repair = repairOutcome,
+            RepairFailure = repairFailure,
+            MissingBeforeRepair = missingBefore,
+            MissingAfterRepair = missingAfter,
+            FailedCalls = failedCalls,
         };
     }
 
@@ -160,6 +180,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
         List<ChatMessage> messages,
         ChatOptions chatOptions,
         OptimizerOptions options,
+        List<string> failedCalls,
         CancellationToken ct)
     {
         Exception? last = null;
@@ -190,39 +211,46 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                 }
                 catch (LlmException ex) when (ex.Kind == LlmErrorKind.JsonModeUnsupported && callOptions.JsonMode)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     callOptions = callOptions with { JsonMode = false };
                 }
                 catch (LlmException ex) when (ex.Kind == LlmErrorKind.Truncated && !retriedTruncation)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     retriedTruncation = true;
                     callOptions = callOptions with { MaxTokens = Math.Min(callOptions.MaxTokens * 2, 12_000) };
                 }
                 catch (LlmException ex) when (ex.Kind == LlmErrorKind.RateLimit && isLast && !waitedForRateLimit
                                               && ex.RetryAfter is { } wait && wait <= options.MaxRateLimitWait)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     waitedForRateLimit = true;
                     last = ex;
                     await _delay(wait + TimeSpan.FromMilliseconds(250), ct).ConfigureAwait(false);
                 }
                 catch (ResponseFormatException ex) when (!retriedFormat)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     retriedFormat = true;
                     last = ex;
                     currentMessages = [.. messages, new ChatMessage("user", JsonReminder)];
                 }
                 catch (LlmException ex) when (ex.Kind == LlmErrorKind.InvalidJsonOutput && !retriedFormat)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     retriedFormat = true;
                     last = ex;
                     currentMessages = [.. messages, new ChatMessage("user", JsonReminder)];
                 }
                 catch (LlmException ex) when (ex.WorthFallingBack)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     last = ex;
                     break; // next endpoint
                 }
                 catch (ResponseFormatException ex)
                 {
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     last = ex;
                     break;
                 }
@@ -240,6 +268,9 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             _ => new OptimizeException(OptimizeFailure.Model, "The model call failed.", last),
         };
     }
+
+    /// <summary>Error kind (plus the provider's limit and requested size) for the log. Never the provider's message or any draft text.</summary>
+    private static string Describe(Exception ex) => ex is LlmException llm ? llm.LogSummary : "badFormat";
 
     /// <summary>Output budget: rewrite plus short reasoning, scaled to input size.</summary>
     internal static int EstimateMaxTokens(string maskedText, OptimizeMode mode)

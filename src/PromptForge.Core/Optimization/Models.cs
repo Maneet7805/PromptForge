@@ -50,6 +50,21 @@ public sealed record OptimizeRequest
     public string? Answers { get; init; }
 }
 
+/// <summary>What the repair step (re-asking for details the rewrite dropped) did on one run.</summary>
+public enum RepairOutcome
+{
+    /// <summary>Nothing was missing, or the rewrite was left unchanged.</summary>
+    NotNeeded,
+    /// <summary>The setting is off, so dropped details were not even checked.</summary>
+    Disabled,
+    /// <summary>The repaired rewrite was used: it kept more of the draft's details.</summary>
+    Restored,
+    /// <summary>The repair call worked but did not bring details back, so the first rewrite was kept.</summary>
+    NoImprovement,
+    /// <summary>The repair call failed (for example too large) and the first rewrite was kept.</summary>
+    Failed,
+}
+
 public sealed record OptimizeResult
 {
     public required string Original { get; init; }
@@ -68,6 +83,19 @@ public sealed record OptimizeResult
     public int CompletionTokens { get; init; }
     public int CachedTokens { get; init; }
     public int Attempts { get; init; } = 1;
+
+    /// <summary>What the repair step did. Diagnostic only; counts and error kinds, never text from the draft.</summary>
+    public RepairOutcome Repair { get; init; } = RepairOutcome.NotNeeded;
+
+    /// <summary>Error kind and the provider's limit and requested size when the repair call failed. Digits and kinds only.</summary>
+    public string? RepairFailure { get; init; }
+
+    /// <summary>How many exact details were missing from the first rewrite, and after repair.</summary>
+    public int MissingBeforeRepair { get; init; }
+    public int MissingAfterRepair { get; init; }
+
+    /// <summary>One entry per failed call that led to a retry or the next model ("model llmError=RateLimit"). Never the provider's message.</summary>
+    public IReadOnlyList<string> FailedCalls { get; init; } = [];
 
     public bool IsUnchanged => Verdict == Verdict.Unchanged || Prompt == Original;
 }
