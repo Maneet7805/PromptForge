@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, mac-testing] # mac-testing: every push builds a Mac app to try
   pull_request:
   workflow_dispatch:
 
