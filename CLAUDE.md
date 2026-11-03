@@ -23,6 +23,7 @@ publish\PromptForge.exe --portable                # try a build without touching
 
 - `src/PromptForge.Core/`: rewriting rules (`Optimization/SystemPrompt.cs`), pipeline, provider clients (`Llm/`), settings, eval runner, update check. No Windows APIs.
 - `src/PromptForge.App/`: tray, hotkeys, text capture and paste (`TextAccess/`), review and settings windows (`UI/`), voice, Win32.
+- `src/PromptForge.Mac/`: macOS menu bar app (Avalonia UI, Carbon hotkeys, Accessibility, Keychain). Builds on any OS; runs on macOS 13+. Package with `installer/macos/build-app.sh` on a Mac.
 - `tests/PromptForge.Core.Tests/`: xUnit. Core logic is tested here; the App is not.
 - `eval/`: quality test set (`cases.json`) and how to run it (`eval/README.md`).
 - `docs/design/`: design docs. `rewrite-intent.md` sets what the rewriter should and shouldn't add.

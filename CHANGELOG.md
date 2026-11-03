@@ -4,8 +4,18 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- **macOS app** (macOS 13+, Apple silicon and Intel): a menu bar app with the same optimise, selection and voice shortcuts (⌃⌥P, ⌃⌥⇧P, ⌃⌥D), review window, settings and quality check. Keys live in the login Keychain, start at login uses Login Items, and releases include `PromptForge-macOS-arm64.zip` and `PromptForge-macOS-x64.zip`. Build it with `installer/macos/build-app.sh`.
+
 ### Changed
 - The log now records why a rewrite failed: the error kind, the provider's token limit and requested size when it reports them, the mode and the draft length. Never the prompt or the provider's message. This is so "too long for the free-tier limit" errors can be diagnosed (#101).
+
+### Security
+- An API key is never sent over plain `http://` to another machine: a custom or Ollama base URL must use `https://` unless it points at this computer or no key is set. Other schemes and URLs with a username or password are refused too.
+- Updates are only downloaded from this repository's GitHub release URLs, and downloads are size-capped.
+- Responses from model providers are capped at 16 MB, so a misbehaving endpoint can't exhaust memory.
+- Dictated text has control characters removed before it is pasted (and line breaks too, in terminals), so it can't carry terminal escape sequences or run commands.
+- On macOS and Linux, `settings.json` is written readable only by your account.
 
 ## [1.3.0] - 2026-11-02
 
