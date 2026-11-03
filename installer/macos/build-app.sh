@@ -23,7 +23,19 @@ OUT="$ROOT/dist/macos-$ARCH"
 APP="$OUT/PromptForge.app"
 ZIP="$OUT/PromptForge-macOS-$ARCH.zip"
 DMG="$OUT/PromptForge-macOS-$ARCH.dmg"
-VERSION="$(dotnet msbuild "$PROJECT" -getProperty:Version)"
+REQUIRED_DOTNET_MAJOR=10
+DOTNET_DOWNLOAD="https://dotnet.microsoft.com/download"
+if ! command -v dotnet >/dev/null; then
+  echo "dotnet not found. Install the .NET $REQUIRED_DOTNET_MAJOR SDK: $DOTNET_DOWNLOAD" >&2; exit 1
+fi
+SDK_VERSION="$(dotnet --version)"
+if (( ${SDK_VERSION%%.*} < REQUIRED_DOTNET_MAJOR )); then
+  echo "This needs the .NET $REQUIRED_DOTNET_MAJOR SDK; this Mac has $SDK_VERSION. Install it: $DOTNET_DOWNLOAD" >&2; exit 1
+fi
+# The command substitution swallows msbuild's error text, so print it before stopping.
+if ! VERSION="$(dotnet msbuild "$PROJECT" -getProperty:Version)"; then
+  echo "$VERSION" >&2; echo "Couldn't read the version from $PROJECT" >&2; exit 1
+fi
 
 echo "Building PromptForge $VERSION for macOS $ARCH"
 rm -rf "$OUT"
