@@ -151,6 +151,11 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             }
         }
 
+        // Tell the user when the backup model answered: its rewrites of long drafts can be weaker, and a rate limit
+        // usually clears within a minute, so re-running may get the main model.
+        if (IndexOfEndpoint(endpoints, endpoint) > 0)
+            warnings.Add($"Answered by the backup model ({endpoint.Label}) because {endpoints[0].Label} couldn't answer. Press Ctrl+R after a minute to try the main model again.");
+
         string finalPrompt;
         var verdict = parsed.Verdict;
         if (verdict == Verdict.Unchanged)
