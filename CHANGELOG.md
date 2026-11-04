@@ -10,6 +10,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - When a call is rate-limited, the log now also records the tokens already used in that minute and how long the provider said to wait, so the right wait before falling back to the backup model can be chosen from real numbers. Numbers only (#101).
 
 ### Fixed
+- Running a second long draft within a minute no longer silently switches to the backup model when the main model only needs a short wait: PromptForge now waits up to 25 seconds (Groq asked for 19 in testing) and retries the main model once before falling back. Before, it waited only for the last model in the list, and only up to 6 seconds (#101).
 - Long drafts: when the rewrite drops exact details, the repair step now sends only the rewrite and a short excerpt of the draft for each missing detail, not the whole draft again, and tries the backup model if the main one is rate-limited. Before, on a 14,700-character draft the repair request alone was 7,863 tokens against the 8,000-per-minute free-tier limit, so it always failed and the details stayed missing. A repair that shortens the rewrite is ignored (#76).
 
 ## [1.3.0] - 2026-11-02

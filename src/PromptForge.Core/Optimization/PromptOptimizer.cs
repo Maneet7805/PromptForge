@@ -26,8 +26,12 @@ public sealed record OptimizerOptions
     /// <summary>One extra call when exact details were dropped. Costs tokens, so it can be turned off.</summary>
     public bool RepairDroppedDetails { get; init; } = true;
 
-    /// <summary>Longest wait honoured for a rate-limit "retry after" before giving up on an endpoint.</summary>
-    public TimeSpan MaxRateLimitWait { get; init; } = TimeSpan.FromSeconds(6);
+    /// <summary>
+    /// Longest wait honoured for a rate-limit "retry after" before moving on to the next model. Groq's free tier
+    /// usually asks for under 20 seconds when a second long draft lands within a minute of the first; waiting
+    /// keeps the stronger model instead of silently answering with the backup.
+    /// </summary>
+    public TimeSpan MaxRateLimitWait { get; init; } = TimeSpan.FromSeconds(25);
 
     /// <summary>
     /// The system prompt. Only the quality check changes it, to compare another version of the
@@ -214,7 +218,6 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
         for (var i = 0; i < endpoints.Count; i++)
         {
             var endpoint = endpoints[i];
-            var isLast = i == endpoints.Count - 1;
             var callOptions = chatOptions;
             var waitedForRateLimit = false;
             var retriedFormat = false;
@@ -246,7 +249,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                     retriedTruncation = true;
                     callOptions = callOptions with { MaxTokens = Math.Min(callOptions.MaxTokens * 2, 12_000) };
                 }
-                catch (LlmException ex) when (ex.Kind == LlmErrorKind.RateLimit && isLast && !waitedForRateLimit
+                catch (LlmException ex) when (ex.Kind == LlmErrorKind.RateLimit && !waitedForRateLimit
                                               && ex.RetryAfter is { } wait && wait <= options.MaxRateLimitWait)
                 {
                     failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
