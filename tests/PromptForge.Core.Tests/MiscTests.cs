@@ -562,10 +562,28 @@ public class EvalGradingNumberTests
     }
 
     [Fact]
-    public void Repair_message_asks_for_details_back_without_meta_instructions()
+    public void Repair_request_asks_for_details_back_without_meta_instructions()
     {
-        var message = UserMessageBuilder.BuildRepairMessage(["merge and deploy"]);
+        var message = UserMessageBuilder.BuildRepairRequest("Ship it.", ["merge and deploy"], "please merge and deploy on friday");
         Assert.Contains("- merge and deploy", message);
         Assert.Contains("Don't add an instruction telling the AI to use or include them", message);
+        Assert.Contains("<rewrite>\nShip it.\n</rewrite>", message);
+    }
+
+    [Fact]
+    public void Repair_request_quotes_only_the_part_of_the_draft_around_each_detail()
+    {
+        var draft = "first line about something else entirely\nthe budget is 4,000 for the whole project, no more\n" + new string('x', 5000);
+        var message = UserMessageBuilder.BuildRepairRequest("Plan it.", ["4,000"], draft);
+        Assert.Contains("the budget is 4,000 for the whole project, no more", message);
+        Assert.DoesNotContain("first line about something else", message);
+        Assert.True(message.Length < 800);
+    }
+
+    [Fact]
+    public void Repair_request_still_lists_a_detail_that_cannot_be_found_as_written()
+    {
+        var message = UserMessageBuilder.BuildRepairRequest("Plan it.", ["no such text"], "a draft");
+        Assert.Contains("- no such text\n", message);
     }
 }

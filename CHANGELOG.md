@@ -8,6 +8,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - The log now records why a rewrite failed: the error kind, the provider's token limit and requested size when it reports them, the mode and the draft length. Never the prompt or the provider's message. This is so "too long for the free-tier limit" errors can be diagnosed (#101).
 - The log line for each rewrite now also says what the repair step did (restored, no improvement, failed, off), how many exact details were missing before and after, and why any failed call led to a retry or the backup model. Error kinds, limits and counts only (#104).
 
+### Fixed
+- Long drafts: when the rewrite drops exact details, the repair step now sends only the rewrite and a short excerpt of the draft for each missing detail, not the whole draft again, and tries the backup model if the main one is rate-limited. Before, on a 14,700-character draft the repair request alone was 7,863 tokens against the 8,000-per-minute free-tier limit, so it always failed and the details stayed missing. A repair that shortens the rewrite is ignored (#76).
+
 ## [1.3.0] - 2026-11-02
 
 ### Added
