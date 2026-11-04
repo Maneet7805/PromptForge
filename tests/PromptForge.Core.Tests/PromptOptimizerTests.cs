@@ -169,6 +169,35 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task Says_so_when_the_backup_model_answered()
+    {
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model"
+            ? throw new LlmException(LlmErrorKind.RateLimit, "429")
+            : Json("From fallback."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        var warning = Assert.Single(result.Warnings);
+        Assert.Contains("backup model (small-model (groq))", warning);
+        Assert.Contains("big-model (groq)", warning);
+        Assert.Contains("Ctrl+R", warning);
+    }
+
+    [Fact]
+    public async Task Says_nothing_about_a_backup_when_the_main_model_answered_after_a_wait()
+    {
+        var bigCalls = 0;
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model" && ++bigCalls == 1
+            ? throw new LlmException(LlmErrorKind.RateLimit, "429", TimeSpan.FromSeconds(3))
+            : Json("From the main model."));
+
+        var result = await new PromptOptimizer(client, (_, _) => Task.CompletedTask)
+            .OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
     public async Task Falls_back_without_waiting_when_the_rate_limit_wait_is_longer_than_the_cap()
     {
         var waits = new List<TimeSpan>();
