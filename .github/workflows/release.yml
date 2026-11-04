@@ -8,8 +8,51 @@ permissions:
   contents: write
 
 jobs:
+  macos:
+    name: Build macOS apps
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check the Mac project version matches the tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          project="$(dotnet msbuild src/PromptForge.Mac/PromptForge.Mac.csproj -getProperty:Version)"
+          if [ "$project" != "$version" ]; then echo "Tag v$version doesn't match <Version>$project</Version> in PromptForge.Mac.csproj"; exit 1; fi
+
+      - name: Test
+        run: dotnet test tests/PromptForge.Core.Tests -c Release
+
+      # Ad-hoc signed. To ship Developer ID signed and notarized builds (which also enables in-app
+      # updates on macOS), import the certificate into a keychain here and set SIGN_IDENTITY and
+      # NOTARY_PROFILE for these two steps.
+      - name: Build arm64
+        run: installer/macos/build-app.sh arm64
+
+      - name: Build x64
+        run: installer/macos/build-app.sh x64
+
+      # The zips stay: the in-app updater downloads them by name. The disk images are for people installing.
+      - name: Collect zips and disk images
+        run: |
+          mkdir -p dist/release
+          cp dist/macos-arm64/PromptForge-macOS-arm64.{zip,dmg} dist/macos-x64/PromptForge-macOS-x64.{zip,dmg} dist/release/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-builds
+          path: dist/release/*
+          retention-days: 1
+
   release:
     name: Build and publish release
+    needs: macos
     runs-on: windows-latest
     defaults:
       run:
@@ -38,6 +81,12 @@ jobs:
       - name: Publish
         run: dotnet publish src/PromptForge.App -c Release -o publish
 
+      - name: Download macOS apps
+        uses: actions/download-artifact@v7
+        with:
+          name: macos-builds
+          path: out
+
       - name: Package
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
@@ -45,7 +94,7 @@ jobs:
           Copy-Item installer/uninstall.cmd out/uninstall.cmd
           Copy-Item LICENSE out/LICENSE.txt
           Compress-Archive -Path out/PromptForge.exe, out/uninstall.cmd, out/LICENSE.txt -DestinationPath "out/PromptForge-$env:VERSION-win-x64.zip"
-          $lines = Get-ChildItem out -File -Include *.exe, *.zip -Recurse | ForEach-Object {
+          $lines = Get-ChildItem out -File -Include *.exe, *.zip, *.dmg -Recurse | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           }
           $lines | Out-File out/SHA256SUMS.txt -Encoding ascii
@@ -67,6 +116,14 @@ jobs:
           3. Paste a free key from https://console.groq.com/keys in Settings → Model → **Test connection** → **Save**.
 
           The zip contains the same exe plus ``uninstall.cmd``. Verify the download against ``SHA256SUMS.txt``.
+
+          ### Mac (macOS 13 or later)
+          1. Download **PromptForge-macOS-arm64.dmg** (Apple silicon: M1 and later) or **PromptForge-macOS-x64.dmg** (Intel). Not sure? Apple menu → **About This Mac**: "Chip: Apple M…" means Apple silicon.
+          2. Open the .dmg and drag **PromptForge** onto **Applications**.
+          3. The app isn't notarized, so the first time it's blocked. Click **Done**, then System Settings → Privacy & Security → **Open Anyway** (macOS 13–14: right-click the app → **Open** → **Open**).
+          4. Allow PromptForge under System Settings → Privacy & Security → **Accessibility** when asked, then add your key in Settings → Model.
+
+          The ``.zip`` files hold the same app and are what in-app updates download.
           "@
           ($notes + "`n" + $install) | Out-File notes.md -Encoding utf8
           Get-Content notes.md
@@ -76,7 +133,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" `
-            out/PromptForge.exe "out/PromptForge-$env:VERSION-win-x64.zip" out/SHA256SUMS.txt `
+            out/PromptForge.exe "out/PromptForge-$env:VERSION-win-x64.zip" `
+            out/PromptForge-macOS-arm64.dmg out/PromptForge-macOS-x64.dmg `
+            out/PromptForge-macOS-arm64.zip out/PromptForge-macOS-x64.zip out/SHA256SUMS.txt `
             --title "PromptForge $env:VERSION" `
             --notes-file notes.md `
             --verify-tag

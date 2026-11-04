@@ -4,6 +4,11 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- **macOS app** (macOS 13+, Apple silicon and Intel): a menu bar app with the same optimise, selection and voice shortcuts (⌃⌥P, ⌃⌥⇧P, ⌃⌥D), review window, settings and quality check. Keys live in the login Keychain, start at login uses Login Items, and releases include `PromptForge-macOS-arm64.zip` and `PromptForge-macOS-x64.zip`. Build it with `installer/macos/build-app.sh`.
+
+- **Mac disk images:** releases include `PromptForge-macOS-arm64.dmg` and `PromptForge-macOS-x64.dmg`; open one and drag PromptForge onto Applications. The README now links them directly, says how to tell Apple silicon from Intel, and gives the macOS 15 **Open Anyway** step for the first launch (#106).
+
 ### Changed
 - The log now records why a rewrite failed: the error kind, the provider's token limit and requested size when it reports them, the mode and the draft length. Never the prompt or the provider's message. This is so "too long for the free-tier limit" errors can be diagnosed (#101).
 - The log line for each rewrite now also says what the repair step did (restored, no improvement, failed, off), how many exact details were missing before and after, and why any failed call led to a retry or the backup model. Error kinds, limits and counts only (#104).
@@ -12,6 +17,13 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 ### Fixed
 - Running a second long draft within a minute no longer silently switches to the backup model when the main model only needs a short wait: PromptForge now waits up to 25 seconds (Groq asked for 19 in testing) and retries the main model once before falling back. Before, it waited only for the last model in the list, and only up to 6 seconds (#101).
 - Long drafts: when the rewrite drops exact details, the repair step now sends only the rewrite and a short excerpt of the draft for each missing detail, not the whole draft again, and tries the backup model if the main one is rate-limited. Before, on a 14,700-character draft the repair request alone was 7,863 tokens against the 8,000-per-minute free-tier limit, so it always failed and the details stayed missing. A repair that shortens the rewrite is ignored (#76).
+
+### Security
+- An API key is never sent over plain `http://` to another machine: a custom or Ollama base URL must use `https://` unless it points at this computer or no key is set. Other schemes and URLs with a username or password are refused too.
+- Updates are only downloaded from this repository's GitHub release URLs, and downloads are size-capped.
+- Responses from model providers are capped at 16 MB, so a misbehaving endpoint can't exhaust memory.
+- Dictated text has control characters removed before it is pasted (and line breaks too, in terminals), so it can't carry terminal escape sequences or run commands.
+- On macOS and Linux, `settings.json` is written readable only by your account.
 
 ## [1.3.0] - 2026-11-02
 
