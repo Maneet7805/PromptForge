@@ -150,6 +150,56 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task Waits_for_a_short_rate_limit_and_keeps_the_main_model_instead_of_falling_back()
+    {
+        var waits = new List<TimeSpan>();
+        var bigCalls = 0;
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model" && ++bigCalls == 1
+            ? throw new LlmException(LlmErrorKind.RateLimit, "Limit 8000, Used 4081, Requested 6439. Please try again in 19s.", TimeSpan.FromSeconds(19))
+            : Json("From the main model."));
+
+        var optimizer = new PromptOptimizer(client, (t, _) => { waits.Add(t); return Task.CompletedTask; });
+        var result = await optimizer.OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal("From the main model.", result.Prompt);
+        Assert.Equal("big-model (groq)", result.Model);
+        Assert.Equal(["big-model", "big-model"], client.Calls.Select(c => c.Endpoint.Model));
+        Assert.Equal([TimeSpan.FromSeconds(19.25)], waits);
+        Assert.Equal(["big-model llmError=RateLimit limit=8000 used=4081 requested=6439 retryAfter=19s"], result.FailedCalls);
+    }
+
+    [Fact]
+    public async Task Falls_back_without_waiting_when_the_rate_limit_wait_is_longer_than_the_cap()
+    {
+        var waits = new List<TimeSpan>();
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model"
+            ? throw new LlmException(LlmErrorKind.RateLimit, "429", TimeSpan.FromSeconds(40))
+            : Json("From fallback."));
+
+        var optimizer = new PromptOptimizer(client, (t, _) => { waits.Add(t); return Task.CompletedTask; });
+        var result = await optimizer.OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal("small-model (groq)", result.Model);
+        Assert.Empty(waits);
+    }
+
+    [Fact]
+    public async Task Waits_only_once_per_model_then_falls_back_if_still_rate_limited()
+    {
+        var waits = new List<TimeSpan>();
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model"
+            ? throw new LlmException(LlmErrorKind.RateLimit, "429", TimeSpan.FromSeconds(3))
+            : Json("From fallback."));
+
+        var optimizer = new PromptOptimizer(client, (t, _) => { waits.Add(t); return Task.CompletedTask; });
+        var result = await optimizer.OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal("small-model (groq)", result.Model);
+        Assert.Single(waits);
+        Assert.Equal(["big-model", "big-model", "small-model"], client.Calls.Select(c => c.Endpoint.Model));
+    }
+
+    [Fact]
     public async Task Long_rate_limit_waits_are_not_honoured()
     {
         var client = new FakeClient(_ => throw new LlmException(LlmErrorKind.RateLimit, "429", TimeSpan.FromMinutes(5)));
