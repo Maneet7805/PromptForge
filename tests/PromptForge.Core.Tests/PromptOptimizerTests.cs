@@ -306,7 +306,7 @@ public class PromptOptimizerTests
         Assert.Null(result.RepairFailure);
         Assert.Equal("big-model (groq)", result.Model);
         Assert.Contains("src/api/users.ts", result.Prompt);
-        Assert.Equal(["big-model repair llmError=RateLimit limit=8000 requested=2100"], result.FailedCalls);
+        Assert.Equal(["big-model repair llmError=RateLimit limit=8000 used=7462 requested=2100"], result.FailedCalls);
         Assert.Empty(result.Warnings);
     }
 
@@ -321,7 +321,7 @@ public class PromptOptimizerTests
             new OptimizeRequest { Text = "fix getUser in users.ts" }, [Primary, Fallback]);
 
         Assert.Equal(RepairOutcome.Failed, result.Repair);
-        Assert.Equal("llmError=RateLimit limit=8000 requested=2000", result.RepairFailure);
+        Assert.Equal("llmError=RateLimit limit=8000 used=7900 requested=2000", result.RepairFailure);
         Assert.Equal(2, result.FailedCalls.Count);
         Assert.Contains(result.Warnings, w => w.Contains("getUser"));
     }
@@ -365,7 +365,7 @@ public class PromptOptimizerTests
 
         var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
 
-        Assert.Equal(["big-model llmError=RateLimit limit=8000 requested=2000"], result.FailedCalls);
+        Assert.Equal(["big-model llmError=RateLimit limit=8000 used=7000 requested=2000"], result.FailedCalls);
         Assert.DoesNotContain("secret", string.Join(" ", result.FailedCalls));
     }
 

@@ -48,6 +48,23 @@ public class ErrorMappingTests
         Assert.Equal("llmError=Auth", ex.LogSummary);
     }
 
+    [Fact]
+    public void Log_summary_includes_tokens_used_and_the_wait_the_provider_asked_for()
+    {
+        var ex = new LlmException(LlmErrorKind.RateLimit,
+            "Rate limit reached for model on tokens per minute (TPM): Limit 8000, Used 7462, Requested 6913. Please try again in 8.1s. secret draft text",
+            TimeSpan.FromSeconds(8.1));
+        Assert.Equal("llmError=RateLimit limit=8000 used=7462 requested=6913 retryAfter=9s", ex.LogSummary);
+        Assert.DoesNotContain("secret", ex.LogSummary);
+    }
+
+    [Fact]
+    public void Log_summary_shows_the_wait_even_without_token_numbers()
+    {
+        var ex = new LlmException(LlmErrorKind.RateLimit, "Too many requests", TimeSpan.FromSeconds(30));
+        Assert.Equal("llmError=RateLimit retryAfter=30s", ex.LogSummary);
+    }
+
     [Theory]
     [InlineData("450ms", 0.45)]
     [InlineData("1m3s", 63)]

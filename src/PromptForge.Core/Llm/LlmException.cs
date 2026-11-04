@@ -38,15 +38,25 @@ public sealed partial class LlmException : Exception
     public TimeSpan? RetryAfter { get; }
 
     /// <summary>
-    /// Kind plus, when the provider reported them, its token limit and the size requested ("Limit 8000, Requested 9500").
-    /// Digits and the error kind only, so it is safe to log: it never contains the provider's message or any prompt text.
+    /// Kind plus, when the provider reported them, its token limit, the tokens already used in the window, the size
+    /// requested ("Limit 8000, Used 7462, Requested 6913") and how long it said to wait. Digits and the error kind
+    /// only, so it is safe to log: it never contains the provider's message or any prompt text.
     /// </summary>
     public string LogSummary
     {
         get
         {
+            var text = $"llmError={Kind}";
             var m = LimitRequestedRegex().Match(Message);
-            return m.Success ? $"llmError={Kind} limit={m.Groups["limit"].Value} requested={m.Groups["req"].Value}" : $"llmError={Kind}";
+            if (m.Success)
+            {
+                text += $" limit={m.Groups["limit"].Value}";
+                var used = UsedRegex().Match(Message);
+                if (used.Success) text += $" used={used.Groups["used"].Value}";
+                text += $" requested={m.Groups["req"].Value}";
+            }
+            if (RetryAfter is { } wait) text += $" retryAfter={Math.Ceiling(wait.TotalSeconds):0}s";
+            return text;
         }
     }
 
@@ -76,4 +86,7 @@ public sealed partial class LlmException : Exception
 
     [GeneratedRegex(@"Limit\s+(?<limit>\d+).*?Requested\s+(?<req>\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex LimitRequestedRegex();
+
+    [GeneratedRegex(@"\bUsed\s+(?<used>\d+)", RegexOptions.IgnoreCase)]
+    private static partial Regex UsedRegex();
 }
