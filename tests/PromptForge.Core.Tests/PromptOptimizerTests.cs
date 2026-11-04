@@ -264,6 +264,98 @@ public class PromptOptimizerTests
         Assert.Empty(result.FailedCalls);
     }
 
+    private const string LongDraft = "getUser in src/api/users.ts returns null, please fix it. The budget is 4,000 and the deadline is 15 days. ";
+
+    private static bool IsRepairCall(FakeCall call) => call.Messages[0].Content == UserMessageBuilder.RepairInstructions;
+
+    [Fact]
+    public async Task Repair_request_is_compact_and_does_not_resend_the_draft_or_the_rules()
+    {
+        var draft = string.Concat(Enumerable.Repeat(LongDraft, 40));
+        var rewrite = "Fix the null result in the users module. " + string.Concat(Enumerable.Repeat("Keep the rest as planned. ", 60));
+        var client = new FakeClient(call => IsRepairCall(call) ? Json(rewrite + " getUser src/api/users.ts 4,000 15") : Json(rewrite));
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = draft }, [Primary]);
+
+        Assert.Equal(2, client.Calls.Count);
+        var repair = client.Calls[1];
+        Assert.Equal(2, repair.Messages.Count);
+        Assert.Equal(UserMessageBuilder.RepairInstructions, repair.Messages[0].Content);
+        Assert.DoesNotContain("<draft>", repair.Messages[1].Content);
+        var total = repair.Messages.Sum(m => m.Content.Length);
+        Assert.True(total < client.Calls[0].Messages.Sum(m => m.Content.Length) / 3, $"repair request was {total} chars");
+        Assert.True(repair.Options.MaxTokens <= client.Calls[0].Options.MaxTokens);
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+    }
+
+    [Fact]
+    public async Task Repair_goes_to_the_backup_model_when_the_main_model_is_rate_limited()
+    {
+        var client = new FakeClient(call =>
+        {
+            if (!IsRepairCall(call)) return Json("Fix the null result in the users module.");
+            return call.Endpoint.Model == "big-model"
+                ? throw new LlmException(LlmErrorKind.RateLimit, "Rate limit reached. Limit 8000, Used 7462, Requested 2100. secret draft text")
+                : Json("Fix getUser in src/api/users.ts so it no longer returns null.");
+        });
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "getUser in src/api/users.ts returns null fix" }, [Primary, Fallback]);
+
+        Assert.Equal(["big-model", "big-model", "small-model"], client.Calls.Select(c => c.Endpoint.Model));
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+        Assert.Null(result.RepairFailure);
+        Assert.Equal("big-model (groq)", result.Model);
+        Assert.Contains("src/api/users.ts", result.Prompt);
+        Assert.Equal(["big-model repair llmError=RateLimit limit=8000 requested=2100"], result.FailedCalls);
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public async Task Repair_fails_with_the_last_reason_when_every_model_refuses()
+    {
+        var client = new FakeClient(call => IsRepairCall(call)
+            ? throw new LlmException(LlmErrorKind.RateLimit, "Limit 8000, Used 7900, Requested 2000.")
+            : Json("Fix the users module."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "fix getUser in users.ts" }, [Primary, Fallback]);
+
+        Assert.Equal(RepairOutcome.Failed, result.Repair);
+        Assert.Equal("llmError=RateLimit limit=8000 requested=2000", result.RepairFailure);
+        Assert.Equal(2, result.FailedCalls.Count);
+        Assert.Contains(result.Warnings, w => w.Contains("getUser"));
+    }
+
+    [Fact]
+    public async Task A_repair_that_shortens_the_rewrite_is_not_used()
+    {
+        var first = "Fix the null result in the users module. " + string.Concat(Enumerable.Repeat("Keep the rest as planned. ", 20));
+        var client = new FakeClient(call => IsRepairCall(call) ? Json("Fix getUser in src/api/users.ts.") : Json(first));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "getUser in src/api/users.ts returns null fix" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.NoImprovement, result.Repair);
+        Assert.Equal(first.Trim(), result.Prompt);
+        Assert.Contains(result.Warnings, w => w.Contains("getUser"));
+    }
+
+    [Fact]
+    public async Task A_repair_keeps_the_task_type_questions_and_notes_from_the_first_reply()
+    {
+        var client = new FakeClient(call => IsRepairCall(call)
+            ? """{"prompt":"Fix getUser in src/api/users.ts so it no longer returns null."}"""
+            : Json("Fix the null result in the users module.", task: "debugging"));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "getUser in src/api/users.ts returns null fix" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+        Assert.Equal(TaskType.Debugging, result.TaskType);
+        Assert.Equal(["q?"], result.Questions);
+        Assert.Equal(["c"], result.Changes);
+    }
+
     [Fact]
     public async Task A_fallback_records_why_the_first_model_failed()
     {

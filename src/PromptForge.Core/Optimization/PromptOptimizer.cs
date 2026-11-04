@@ -97,31 +97,47 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             {
                 missingBefore = missing.Count;
                 repairOutcome = RepairOutcome.NoImprovement;
-                try
+                // Compact request (the rewrite plus excerpts, not the whole draft again), sent to the model that
+                // answered first and then to the next ones. A long draft leaves the first model with almost no
+                // tokens-per-minute budget for a second call, but each model has its own budget.
+                var repairMessages = new List<ChatMessage>
                 {
-                    var repairMessages = new List<ChatMessage>(messages)
+                    new("system", UserMessageBuilder.RepairInstructions),
+                    new("user", UserMessageBuilder.BuildRepairRequest(parsed.Prompt, missing, masked.Text)),
+                };
+                var repairOptions = chatOptions with { MaxTokens = Math.Min(chatOptions.MaxTokens, EstimateMaxTokens(parsed.Prompt, request.Mode)) };
+                for (var i = IndexOfEndpoint(endpoints, endpoint); i < endpoints.Count; i++)
+                {
+                    var repairEndpoint = endpoints[i];
+                    try
                     {
-                        new("assistant", response.Content),
-                        new("user", UserMessageBuilder.BuildRepairMessage(missing)),
-                    };
-                    var repairResponse = await client.CompleteAsync(endpoint, repairMessages, chatOptions, ct).ConfigureAwait(false);
-                    attempts++;
-                    promptTokens += repairResponse.PromptTokens;
-                    completionTokens += repairResponse.CompletionTokens;
-                    cachedTokens += repairResponse.CachedTokens;
-                    var repaired = ResponseParser.Parse(repairResponse.Content);
-                    if (repaired.Verdict != Verdict.Unchanged &&
-                        PreservationChecker.FindMissing(masked.Text, repaired.Prompt).Count < missing.Count)
-                    {
-                        parsed = repaired with { Changes = parsed.Changes, Questions = parsed.Questions };
-                        repairOutcome = RepairOutcome.Restored;
+                        var repairResponse = await client.CompleteAsync(repairEndpoint, repairMessages, repairOptions, ct).ConfigureAwait(false);
+                        attempts++;
+                        promptTokens += repairResponse.PromptTokens;
+                        completionTokens += repairResponse.CompletionTokens;
+                        cachedTokens += repairResponse.CachedTokens;
+                        repairOutcome = RepairOutcome.NoImprovement;
+                        repairFailure = null;
+                        var repaired = ResponseParser.Parse(repairResponse.Content);
+                        // Accept it only if it restored details without shortening the rewrite: a weaker model
+                        // asked to "put it back" sometimes rewrites the whole thing shorter.
+                        if (repaired.Verdict != Verdict.Unchanged &&
+                            repaired.Prompt.Length >= parsed.Prompt.Length * MinRepairLengthRatio &&
+                            PreservationChecker.FindMissing(masked.Text, repaired.Prompt).Count < missing.Count)
+                        {
+                            parsed = parsed with { Prompt = repaired.Prompt };
+                            repairOutcome = RepairOutcome.Restored;
+                        }
+                        break;
                     }
-                }
-                catch (Exception ex) when (ex is LlmException { Kind: not LlmErrorKind.Cancelled } or ResponseFormatException)
-                {
-                    // Keep the first rewrite; the warning below tells the user what to check.
-                    repairOutcome = RepairOutcome.Failed;
-                    repairFailure = Describe(ex);
+                    catch (Exception ex) when (ex is LlmException { Kind: not LlmErrorKind.Cancelled } or ResponseFormatException)
+                    {
+                        // Keep the first rewrite; the warning below tells the user what to check.
+                        repairOutcome = RepairOutcome.Failed;
+                        repairFailure = Describe(ex);
+                        failedCalls.Add($"{repairEndpoint.Model} repair {Describe(ex)}");
+                        if (ex is LlmException { WorthFallingBack: false }) break;
+                    }
                 }
 
                 var stillMissing = PreservationChecker.FindMissing(masked.Text, parsed.Prompt);
@@ -171,6 +187,16 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             MissingAfterRepair = missingAfter,
             FailedCalls = failedCalls,
         };
+    }
+
+    /// <summary>A repair shorter than this share of the first rewrite is treated as a bad repair and dropped.</summary>
+    private const double MinRepairLengthRatio = 0.9;
+
+    private static int IndexOfEndpoint(IReadOnlyList<LlmEndpoint> endpoints, LlmEndpoint endpoint)
+    {
+        for (var i = 0; i < endpoints.Count; i++)
+            if (endpoints[i].Equals(endpoint)) return i;
+        return 0;
     }
 
     private const string JsonReminder = "Respond with only the JSON object described in your instructions.";
