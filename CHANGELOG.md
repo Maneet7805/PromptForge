@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- Settings → Requirements: a new "All tasks" entry. Its text is added word for word to the end of every rewrite, after the text for that kind of task, and never twice (#118).
+
 ## [1.4.1] - 2026-11-05
 
 ### Fixed

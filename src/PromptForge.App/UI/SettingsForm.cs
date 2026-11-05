@@ -28,7 +28,8 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _personal = new() { Multiline = true, Height = 70, Width = 560, ScrollBars = ScrollBars.Vertical, PlaceholderText = "e.g. Year 3 computer science student. I mostly use C#, Java and Python on Windows." };
 
     // Requirements
-    private readonly ComboBox _reqTask = Combo(Enum.GetNames<TaskType>().Where(n => n != nameof(TaskType.Auto)).ToArray());
+    private const string AllTasksLabel = "All tasks";
+    private readonly ComboBox _reqTask = Combo([AllTasksLabel, .. Enum.GetNames<TaskType>().Where(n => n != nameof(TaskType.Auto))]);
     private readonly TextBox _reqText = new() { Multiline = true, Height = 200, Width = 560, ScrollBars = ScrollBars.Vertical, MaxLength = RequirementsAppender.MaxLength };
     private Dictionary<string, string> _reqEdits = [];
     private string? _reqShown;
@@ -118,7 +119,7 @@ internal sealed class SettingsForm : Form
         _reqTask.SelectedIndexChanged += (_, _) => ShowRequirements();
         return Stack(
             Heading("Your standing requirements, per kind of task"),
-            Hint("Written once, added word for word to the end of every rewrite of that kind. PromptForge never changes this text and never sends it to the model. Rewrites that come back unchanged get nothing added."),
+            Hint("Written once, added word for word to the end of every rewrite of that kind. \"All tasks\" is added to every rewrite, after the text for its kind. PromptForge never changes this text and never sends it to the model. Rewrites that come back unchanged get nothing added."),
             Row(new Label { Text = "Task type", AutoSize = true, Padding = new Padding(0, 4, 0, 0) }, _reqTask),
             _reqText,
             Hint("For example, Coding: find the root cause, follow existing conventions, no workarounds, check for regressions. Coding agents also read the same text from a repo's CLAUDE.md or AGENTS.md."));
@@ -128,7 +129,8 @@ internal sealed class SettingsForm : Form
     private void ShowRequirements()
     {
         StoreRequirements();
-        _reqShown = (string?)_reqTask.SelectedItem;
+        var chosen = (string?)_reqTask.SelectedItem;
+        _reqShown = chosen == AllTasksLabel ? RequirementsAppender.AllTasksKey : chosen;
         _reqText.Text = _reqShown is not null && _reqEdits.TryGetValue(_reqShown, out var text) ? text : "";
     }
 
