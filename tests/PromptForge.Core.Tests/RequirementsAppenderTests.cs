@@ -127,4 +127,58 @@ public class RequirementsAppenderTests
             Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
         }
     }
+
+    private const string AllRules = "Reply in British English.";
+
+    [Fact]
+    public void All_tasks_text_is_added_to_every_task_type()
+    {
+        var all = new Dictionary<string, string> { ["All"] = AllRules };
+        var result = RequirementsAppender.Apply(Result("Fix the login bug.", TaskType.Debugging), all);
+        Assert.Equal("Fix the login bug.\n\n" + AllRules, result.Prompt);
+        Assert.Contains("Added your standing requirements for all tasks", result.Changes);
+    }
+
+    [Fact]
+    public void Task_text_comes_first_then_all_tasks_text()
+    {
+        var both = new Dictionary<string, string> { ["Coding"] = CodingRules, ["All"] = AllRules };
+        var result = RequirementsAppender.Apply(Result("Fix the login bug."), both);
+        Assert.Equal("Fix the login bug.\n\n" + CodingRules + "\n\n" + AllRules, result.Prompt);
+        Assert.Contains("Added your standing requirements for coding", result.Changes);
+        Assert.Contains("Added your standing requirements for all tasks", result.Changes);
+    }
+
+    [Fact]
+    public void Identical_task_and_all_text_is_added_once()
+    {
+        var same = new Dictionary<string, string> { ["Coding"] = AllRules, ["All"] = AllRules };
+        var result = RequirementsAppender.Apply(Result("Fix the login bug."), same);
+        Assert.Equal("Fix the login bug.\n\n" + AllRules, result.Prompt);
+    }
+
+    [Fact]
+    public void All_tasks_text_already_at_the_end_is_not_added_again()
+    {
+        var all = new Dictionary<string, string> { ["All"] = AllRules };
+        var first = RequirementsAppender.Apply(Result("Fix the login bug."), all);
+        var second = RequirementsAppender.Apply(first, all);
+        Assert.Equal(first.Prompt, second.Prompt);
+    }
+
+    [Fact]
+    public void An_unchanged_rewrite_gets_no_all_tasks_text()
+    {
+        var all = new Dictionary<string, string> { ["All"] = AllRules };
+        var unchanged = Result("thanks", verdict: Verdict.Unchanged, original: "thanks");
+        Assert.Equal("thanks", RequirementsAppender.Apply(unchanged, all).Prompt);
+    }
+
+    [Fact]
+    public void Settings_without_an_all_tasks_entry_still_work()
+    {
+        var result = RequirementsAppender.Apply(Result("Fix the login bug."), Coding);
+        Assert.Equal("Fix the login bug.\n\n" + CodingRules, result.Prompt);
+        Assert.Single(result.Changes, c => c.StartsWith("Added your standing requirements"));
+    }
 }
