@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- A copy of `PromptForge.exe` built with `dotnet build` (it has `PromptForge.dll` beside it) no longer offers to install itself. Before, choosing Yes copied only the launcher into the install folder and broke the installed app. Release downloads are unchanged (#113).
+
 ## [1.4.0] - 2026-11-05
 
 ### Added

@@ -28,7 +28,9 @@ internal static class Program
             return SelfInstaller.Uninstall();
 
         // A copy run from anywhere else (e.g. the dist folder) offers to install or update itself.
-        if (!SelfInstaller.IsRunningFromInstallDir && !args.Contains("--portable") && SelfInstaller.OfferInstall())
+        // A plain build (PromptForge.dll beside the exe) can't be installed by copying the exe, so it is never offered.
+        if (!SelfInstaller.IsRunningFromInstallDir && !args.Contains("--portable")
+            && PromptForge.Core.Install.InstallPaths.CanInstallFrom(AppPaths.ExePath) && SelfInstaller.OfferInstall())
             return 0;
 
         using var mutex = new Mutex(initiallyOwned: false, MutexName);

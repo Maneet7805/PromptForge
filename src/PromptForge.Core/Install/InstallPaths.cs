@@ -25,4 +25,15 @@ public static class InstallPaths
             return false;
         }
     }
+
+    /// <summary>
+    /// False when the exe is the launcher from a plain <c>dotnet build</c>: it needs <c>PromptForge.dll</c> and the
+    /// other build files beside it, so copying only the exe into the install folder would break the installed copy.
+    /// The release exe is a single file with nothing beside it.
+    /// </summary>
+    public static bool CanInstallFrom(string? exePath)
+    {
+        var dir = string.IsNullOrWhiteSpace(exePath) ? null : Path.GetDirectoryName(exePath);
+        return dir is null || !File.Exists(Path.Combine(dir, "PromptForge.dll"));
+    }
 }
