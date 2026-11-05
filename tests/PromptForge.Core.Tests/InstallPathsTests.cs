@@ -64,4 +64,35 @@ public class InstallPathsTests
     {
         Assert.False(InstallPaths.IsSafeToDelete(Install, ""));
     }
+
+    [Fact]
+    public void A_build_output_with_its_dll_beside_the_exe_cannot_be_installed()
+    {
+        var dir = Directory.CreateTempSubdirectory("pf-build-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "PromptForge.dll"), "x");
+            Assert.False(InstallPaths.CanInstallFrom(Path.Combine(dir, "PromptForge.exe")));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void A_single_file_exe_with_nothing_beside_it_can_be_installed()
+    {
+        var dir = Directory.CreateTempSubdirectory("pf-release-").FullName;
+        try
+        {
+            Assert.True(InstallPaths.CanInstallFrom(Path.Combine(dir, "PromptForge.exe")));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void An_unknown_exe_path_does_not_block_the_offer(string? exe)
+    {
+        Assert.True(InstallPaths.CanInstallFrom(exe));
+    }
 }
