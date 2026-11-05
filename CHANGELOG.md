@@ -4,6 +4,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-05
+
 ### Fixed
 - A copy of `PromptForge.exe` built with `dotnet build` (it has `PromptForge.dll` beside it) no longer offers to install itself. Before, choosing Yes copied only the launcher into the install folder and broke the installed app. Release downloads are unchanged (#113).
 
@@ -135,6 +137,7 @@ First public release. It contains everything from the 0.x builds plus the fixes 
 ### Added
 - Initial personal build: core optimiser, tray app, review window, settings, voice and eval runner.
 
+[1.4.1]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.4.1
 [1.4.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.3.0
 [1.2.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.2.0
