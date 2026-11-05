@@ -90,7 +90,7 @@ public static class UserMessageBuilder
             Line(excerpt is null ? $"- {item}" : $"- {item}   (draft: \"{excerpt}\")");
         }
         Line();
-        Line("Put each of them back exactly as written, in the place it had in the draft. Don't add an instruction telling the AI to use or include them; just put them back. Change nothing else, and don't shorten or drop anything else from the rewrite.");
+        Line("Put each of them back exactly as written, inside a full sentence in the part of the rewrite that matches where the draft used it, changing that sentence only as much as needed. Never leave a detail alone on its own line or after a full stop. Don't add an instruction telling the AI to use or include them; say only what the draft said about them. Change nothing else, and don't shorten or drop anything else from the rewrite.");
         return sb.ToString();
     }
 

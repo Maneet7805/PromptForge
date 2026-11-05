@@ -352,7 +352,7 @@ public class PromptOptimizerTests
     {
         var draft = string.Concat(Enumerable.Repeat(LongDraft, 40));
         var rewrite = "Fix the null result in the users module. " + string.Concat(Enumerable.Repeat("Keep the rest as planned. ", 60));
-        var client = new FakeClient(call => IsRepairCall(call) ? Json(rewrite + " getUser src/api/users.ts 4,000 15") : Json(rewrite));
+        var client = new FakeClient(call => IsRepairCall(call) ? Json(rewrite + " Use getUser in src/api/users.ts with a budget of 4,000 and 15 days.") : Json(rewrite));
         var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = draft }, [Primary]);
 
         Assert.Equal(2, client.Calls.Count);
@@ -417,6 +417,38 @@ public class PromptOptimizerTests
         Assert.Equal(RepairOutcome.NoImprovement, result.Repair);
         Assert.Equal(first.Trim(), result.Prompt);
         Assert.Contains(result.Warnings, w => w.Contains("getUser"));
+    }
+
+    [Theory]
+    [InlineData("Fix the null result in the users module (never drop rows). 12")]
+    [InlineData("Fix the null result in the users module (never drop rows).\n- 12")]
+    [InlineData("Fix the null result in the users module. Keep the rest as planned. 12")]
+    public async Task A_repair_that_only_appends_the_bare_detail_is_not_used(string bareRepair)
+    {
+        const string first = "Fix the null result in the users module (never drop rows).";
+        var client = new FakeClient(call => IsRepairCall(call) ? Json(bareRepair) : Json(first));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "fix the null result in users, never drop rows, keep 12 columns" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.NoImprovement, result.Repair);
+        Assert.Equal(first, result.Prompt);
+        Assert.Contains(result.Warnings, w => w.Contains("12"));
+    }
+
+    [Fact]
+    public async Task A_repair_that_restores_the_detail_inside_a_sentence_is_used()
+    {
+        var client = new FakeClient(call => IsRepairCall(call)
+            ? Json("Fix the null result in the users module (never drop rows).\nKeep all 12 columns in the output.")
+            : Json("Fix the null result in the users module (never drop rows)."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "fix the null result in users, never drop rows, keep 12 columns" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+        Assert.Contains("Keep all 12 columns in the output.", result.Prompt);
+        Assert.Empty(result.Warnings);
     }
 
     [Fact]
