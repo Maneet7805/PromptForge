@@ -4,6 +4,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-07
+
 ### Added
 - Settings → Requirements: a new "All tasks" entry. Its text is added word for word to the end of every rewrite, after the text for that kind of task, and never twice (#118).
 
@@ -144,6 +146,7 @@ First public release. It contains everything from the 0.x builds plus the fixes 
 ### Added
 - Initial personal build: core optimiser, tray app, review window, settings, voice and eval runner.
 
+[1.5.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.5.0
 [1.4.1]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.4.1
 [1.4.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.4.0
 [1.3.0]: https://github.com/Maneet7805/PromptForge/releases/tag/v1.3.0
