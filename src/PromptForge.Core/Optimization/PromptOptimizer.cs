@@ -80,6 +80,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
 
         var failedCalls = new List<string>();
         var (response, parsed, endpoint, attempts) = await CallWithFallbackAsync(endpoints, messages, chatOptions, options, failedCalls, ct).ConfigureAwait(false);
+        parsed = parsed with { Prompt = RewriteTags.StripWrapper(parsed.Prompt, original) };
         var promptTokens = response.PromptTokens;
         var completionTokens = response.CompletionTokens;
         var cachedTokens = response.CachedTokens;
@@ -123,6 +124,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                         repairOutcome = RepairOutcome.NoImprovement;
                         repairFailure = null;
                         var repaired = ResponseParser.Parse(repairResponse.Content);
+                        repaired = repaired with { Prompt = RewriteTags.StripWrapper(repaired.Prompt, original) };
                         // Accept it only if it restored details without shortening the rewrite: a weaker model
                         // asked to "put it back" sometimes rewrites the whole thing shorter.
                         if (repaired.Verdict != Verdict.Unchanged &&

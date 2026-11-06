@@ -7,6 +7,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 ### Added
 - Settings → Requirements: a new "All tasks" entry. Its text is added word for word to the end of every rewrite, after the text for that kind of task, and never twice (#118).
 
+### Fixed
+- Raw `<rewrite>` and `</rewrite>` tags no longer show up in the Improved text after the repair step (#123).
+
 ## [1.4.1] - 2026-11-05
 
 ### Fixed
