@@ -468,6 +468,41 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task A_repair_that_echoes_the_rewrite_tags_does_not_leak_them_into_the_prompt()
+    {
+        var client = new FakeClient(call => IsRepairCall(call)
+            ? Json("<rewrite>\nFix getUser in src/api/users.ts so it no longer returns null.\n</rewrite>")
+            : Json("Fix the null result in the users module."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "getUser in src/api/users.ts returns null fix" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+        Assert.Equal("Fix getUser in src/api/users.ts so it no longer returns null.", result.Prompt);
+    }
+
+    [Fact]
+    public async Task A_first_reply_wrapped_in_rewrite_tags_does_not_leak_them_into_the_prompt()
+    {
+        var client = new FakeClient(_ => Json("<rewrite>Explain closures in JavaScript.</rewrite>"));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "explain closures js" }, [Primary]);
+
+        Assert.Equal("Explain closures in JavaScript.", result.Prompt);
+    }
+
+    [Fact]
+    public async Task Rewrite_tags_the_user_wrote_themselves_are_kept()
+    {
+        var draft = "<rewrite>make this shorter</rewrite>";
+        var client = new FakeClient(_ => Json("<rewrite>Make this shorter.</rewrite>"));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = draft }, [Primary]);
+
+        Assert.Equal("<rewrite>Make this shorter.</rewrite>", result.Prompt);
+    }
+
+    [Fact]
     public async Task A_fallback_records_why_the_first_model_failed()
     {
         var client = new FakeClient(call => call.Endpoint.Model == "big-model"
