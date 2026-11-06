@@ -125,11 +125,13 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                         repairFailure = null;
                         var repaired = ResponseParser.Parse(repairResponse.Content);
                         repaired = repaired with { Prompt = RewriteTags.StripWrapper(repaired.Prompt, original) };
-                        // Accept it only if it restored details without shortening the rewrite: a weaker model
-                        // asked to "put it back" sometimes rewrites the whole thing shorter.
+                        // Accept it only if it restored details without shortening the rewrite (a weaker model
+                        // asked to "put it back" sometimes rewrites the whole thing shorter) and without leaving a
+                        // detail as a bare fragment, which satisfies the checker but reads as a stray token.
                         if (repaired.Verdict != Verdict.Unchanged &&
                             repaired.Prompt.Length >= parsed.Prompt.Length * MinRepairLengthRatio &&
-                            PreservationChecker.FindMissing(masked.Text, repaired.Prompt).Count < missing.Count)
+                            PreservationChecker.FindMissing(masked.Text, repaired.Prompt).Count < missing.Count &&
+                            !RepairFragments.HasBareDetail(repaired.Prompt, missing))
                         {
                             parsed = parsed with { Prompt = repaired.Prompt };
                             repairOutcome = RepairOutcome.Restored;

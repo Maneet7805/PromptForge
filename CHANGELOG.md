@@ -8,6 +8,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 - Settings → Requirements: a new "All tasks" entry. Its text is added word for word to the end of every rewrite, after the text for that kind of task, and never twice (#118).
 
 ### Fixed
+- The repair step no longer appends a dropped detail as a bare fragment (a lone number on its own line, or stuck on after a full stop). Such a repair is now rejected and the first rewrite is kept with the "check these details" warning. The repair request also asks for the detail inside a full sentence (#124).
 - Raw `<rewrite>` and `</rewrite>` tags no longer show up in the Improved text after the repair step (#123).
 
 ## [1.4.1] - 2026-11-05
