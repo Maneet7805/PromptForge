@@ -60,4 +60,48 @@ public class SpeechDetectorTests
     {
         Assert.Equal(AudioLevel.HasSound, SpeechDetector.Analyze(Tone(0.5, dbfs: -25, leadingSilenceSeconds: 2), Rate));
     }
+
+    [Fact]
+    public void A_single_stray_byte_is_muted_not_a_crash()
+    {
+        Assert.Equal(AudioLevel.Muted, SpeechDetector.Analyze(new byte[] { 0x7F }, Rate));
+    }
+
+    [Fact]
+    public void A_trailing_half_sample_is_ignored()
+    {
+        // A stream cut off mid-sample leaves one extra byte; the sound before it still counts.
+        var pcm = Tone(1, dbfs: -20).Concat(new byte[] { 0x7F }).ToArray();
+        Assert.Equal(AudioLevel.HasSound, SpeechDetector.Analyze(pcm, Rate));
+    }
+
+    [Theory]
+    [InlineData(8000)]
+    [InlineData(44100)]
+    public void Speech_level_sound_is_kept_at_other_sample_rates(int rate)
+    {
+        Assert.Equal(AudioLevel.HasSound, SpeechDetector.Analyze(ToneAt(rate, 1, dbfs: -20), rate));
+    }
+
+    [Theory]
+    [InlineData(8000)]
+    [InlineData(44100)]
+    public void Quiet_noise_is_silent_at_other_sample_rates(int rate)
+    {
+        Assert.Equal(AudioLevel.Silent, SpeechDetector.Analyze(ToneAt(rate, 3, dbfs: -65), rate));
+    }
+
+    private static byte[] ToneAt(int rate, double seconds, double dbfs)
+    {
+        var count = (int)(seconds * rate);
+        var amplitude = 32767 * Math.Pow(10, dbfs / 20) * Math.Sqrt(2);
+        var bytes = new byte[count * 2];
+        for (var i = 0; i < count; i++)
+        {
+            var sample = (short)Math.Clamp(amplitude * Math.Sin(2 * Math.PI * 220 * i / rate), short.MinValue, short.MaxValue);
+            bytes[i * 2] = (byte)sample;
+            bytes[i * 2 + 1] = (byte)(sample >> 8);
+        }
+        return bytes;
+    }
 }
