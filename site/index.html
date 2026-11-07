@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PromptForge: clearer prompts, reviewed before you paste</title>
+<meta name="description" content="PromptForge is a free Windows tray app that rewrites your rough prompt into a clearer one. You review it before anything is pasted.">
+<meta name="theme-color" content="#10212E">
+<link rel="canonical" href="https://maneet7805.github.io/PromptForge/">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="PromptForge: clearer prompts, reviewed before you paste">
+<meta property="og:description" content="A free Windows tray app that rewrites your rough prompt into a clearer one. You review it before anything is pasted.">
+<meta property="og:url" content="https://maneet7805.github.io/PromptForge/">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top on-ink">
+  <div class="wrap top-row">
+    <a class="brand" href="#top">PromptForge</a>
+    <nav aria-label="Page">
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="#providers">Providers</a>
+      <a href="https://github.com/Maneet7805/PromptForge">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero on-ink" id="top">
+  <div class="wrap">
+    <h1>PromptForge is a free Windows tray app that rewrites your rough prompt into a clearer one before you send it.</h1>
+    <p class="lead">Write or select a draft in any text box, press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>, and read the rewrite. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to replace your text, or <kbd>Esc</kbd> to keep it.</p>
+    <p class="cta-row">
+      <a class="btn" href="https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge.exe">Download PromptForge.exe</a>
+      <span class="meta">Windows 10 and 11, MIT licence. <a href="#install">Setup and the SmartScreen warning</a></span>
+    </p>
+    <figure class="pair">
+      <div>
+        <p class="pair-label">You type</p>
+        <p class="mono">whats the capital of australia</p>
+      </div>
+      <div>
+        <p class="pair-label">You review</p>
+        <p class="mono"><mark>What is</mark> the capital of <mark>Australia?</mark></p>
+      </div>
+      <figcaption>A short example. Longer drafts get more help; drafts that are already good come back unchanged.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="story on-ink" id="how" aria-labelledby="how-h">
+  <div class="story-track">
+    <div class="stage wrap">
+      <div class="story-text">
+        <h2 id="how-h">How it works</h2>
+        <ol class="steps">
+          <li class="sc lit" style="--a:0%;--b:1%">
+            <h3>Write a draft</h3>
+            <p>Type it, or select it, in any normal text box: a browser chat, VS Code, Word, email, Notepad.</p>
+          </li>
+          <li class="sc lit" style="--a:27%;--b:30%">
+            <h3>Press the hotkey</h3>
+            <p><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> rewrites the whole box. Add <kbd>Shift</kbd> to rewrite only the selection.</p>
+          </li>
+          <li class="sc lit" style="--a:39%;--b:42%">
+            <h3>Review the rewrite</h3>
+            <p>See it next to your original, edit it, or answer its questions and run it again.</p>
+          </li>
+          <li class="sc lit" style="--a:75%;--b:78%">
+            <h3>You decide</h3>
+            <p>Replace puts the rewrite in the box. Keep original leaves your text alone. PromptForge never presses Enter for you.</p>
+          </li>
+        </ol>
+      </div>
+
+      <div class="scene">
+        <div class="mock" aria-hidden="true">
+          <div class="keys">
+            <kbd class="key sc" style="--a:28%;--b:32%">Ctrl</kbd>
+            <kbd class="key sc" style="--a:32%;--b:36%">Alt</kbd>
+            <kbd class="key sc" style="--a:36%;--b:40%">P</kbd>
+          </div>
+
+          <div class="host">
+            <div class="host-bar">A text box in any app</div>
+            <div class="host-body">
+              <p class="host-draft"><span class="sel sc sweep" style="--a:8%;--b:25%">organise a drive using AI make sure nothing immportant gets deleted no deleting without asking me can put in 1 folder for me to check organise in proper folder and make sure nothing breaks</span></p>
+              <p class="host-new sc" style="--a:88%;--b:96%">Organise my drive into a sensible folder structure. Keeping my files safe matters more than speed: nothing important may be lost, and nothing should break.</p>
+            </div>
+            <p class="pasted sc" style="--a:92%;--b:100%">Pasted. Nothing was submitted.</p>
+          </div>
+
+          <div class="review sc">
+            <div class="win-bar">PromptForge review</div>
+            <div class="win-tabs"><span class="on">Improved</span><span>Changes</span><span>Original</span></div>
+            <div class="win-body">
+              <p class="rl sc" style="--a:52%;--b:58%">Organise my drive into a sensible folder structure. Keeping my files safe matters more than speed: nothing important may be lost, and nothing should break.</p>
+              <p class="rl sc" style="--a:58%;--b:64%">1. First look through the drive and propose the folder structure and the moves you'd make. <mark class="sc sweep" style="--a:70%;--b:74%">Wait for my approval</mark> before moving anything.</p>
+              <p class="rl sc" style="--a:64%;--b:70%">2. <mark class="sc sweep" style="--a:71%;--b:75%">Don't delete anything.</mark> Put anything you think could be deleted into one folder for me to check.</p>
+              <p class="rl sc" style="--a:70%;--b:76%">3. Move files in <mark class="sc sweep" style="--a:72%;--b:76%">small batches</mark> and <mark class="sc sweep" style="--a:72%;--b:76%">keep a log</mark> of every move, so any of it can be undone.</p>
+            </div>
+            <div class="win-foot">
+              <span class="decide sc" style="--a:76%;--b:84%">You decide.</span>
+              <span class="wbtn">Keep original (Esc)</span>
+              <span class="wbtn">Replace (Ctrl+Enter)</span>
+            </div>
+          </div>
+        </div>
+        <p class="note">Example, shortened from <a href="https://github.com/Maneet7805/PromptForge/blob/main/docs/design/rewrite-intent.md">the design notes</a>. Not a recorded run. Yellow marks what the rewrite added.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="limits on-chalk" aria-labelledby="limits-h">
+  <div class="wrap">
+    <h2 id="limits-h">What it will not do</h2>
+    <dl class="rules">
+      <div>
+        <dt>Submit anything for you</dt>
+        <dd>It changes your text only when you choose Replace. It never presses Enter.</dd>
+      </div>
+      <div>
+        <dt>Change your details</dt>
+        <dd>URLs, file paths, identifiers, numbers and quoted text are checked after every rewrite. Pasted code, stack traces and logs come back unchanged.</dd>
+      </div>
+      <div>
+        <dt>Make things up</dt>
+        <dd>When details are missing, the review window asks you. It does not fill the gap with a guess.</dd>
+      </div>
+      <div>
+        <dt>Type into a terminal</dt>
+        <dd>In Windows Terminal, cmd and PowerShell it copies the result and you paste it yourself. Password fields are refused.</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<section class="voice on-ink" aria-labelledby="voice-h">
+  <div class="wrap grid">
+    <div class="col-text">
+      <h2 id="voice-h">Dictate instead of typing</h2>
+      <p>Tap <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> to start and again to stop, or hold it while you talk and release. The transcript is typed into the box, or rewritten first if you choose.</p>
+      <p>Dictation uses Groq's speech model, so it needs a Groq key. The audio goes to Groq when you dictate, and to nobody before that.</p>
+    </div>
+  </div>
+</section>
+
+<section class="quality on-chalk" aria-labelledby="quality-h">
+  <div class="wrap grid">
+    <div class="col-text">
+      <h2 id="quality-h">It checks its own work</h2>
+      <p>PromptForge ships with a test set of drafts. <b>Settings, Data, Run quality check</b> sends them through your model and grades the rewrites with code. Each case runs three times, so one lucky run does not hide a problem.</p>
+      <p>The checks look for dropped details, invented numbers, filler, and rewrites of prompts that were already good. A second model from a different provider can act as judge.</p>
+      <p><a href="https://github.com/Maneet7805/PromptForge/blob/main/eval/README.md">How to run it and compare two versions</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="install on-ink" id="install" aria-labelledby="install-h">
+  <div class="wrap grid">
+    <div class="col-text">
+      <h2 id="install-h">Install in three steps</h2>
+      <ol class="setup">
+        <li><b>Download</b> <a href="https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge.exe">PromptForge.exe</a> from the latest release.</li>
+        <li><b>Open it</b> and choose Yes to install. It copies itself to your user folder and needs no admin rights.</li>
+        <li><b>Paste an API key.</b> Settings opens on the Model tab: paste the key, click Test connection, then Save. A free <a href="https://console.groq.com/keys">Groq key</a> takes about a minute.</li>
+      </ol>
+      <p>Then click into any text box and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>.</p>
+      <p><a class="btn" href="https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge.exe">Download PromptForge.exe</a></p>
+    </div>
+    <div class="col-aside">
+      <h3>Windows will warn you</h3>
+      <p>The exe is not code-signed, because signing needs a paid certificate. Windows SmartScreen may show "Windows protected your PC". Click <b>More info</b>, then <b>Run anyway</b>.</p>
+      <h3>Check the download</h3>
+      <p>Compare this hash with the one in <a href="https://github.com/Maneet7805/PromptForge/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>. A match shows the file is the one in the release. It does not show who built it.</p>
+      <div class="code">
+        <code id="hashcmd">Get-FileHash .\PromptForge.exe -Algorithm SHA256</code>
+        <button type="button" class="copy" data-copy="#hashcmd" hidden>Copy</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="providers on-chalk" id="providers" aria-labelledby="providers-h">
+  <div class="wrap">
+    <h2 id="providers-h">Which AI provider it uses</h2>
+    <p class="intro">PromptForge sends your text to the provider you choose, only after you press the hotkey. You bring the key.</p>
+    <table>
+      <thead>
+        <tr><th scope="col">Provider</th><th scope="col">How you set it up</th><th scope="col">Good to know</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Groq</th><td>Preset, the default</td><td>Has a free tier. The only provider that does voice dictation.</td></tr>
+        <tr><th scope="row">Google Gemini</th><td>Preset</td><td>Has a free tier. Google may use free-tier prompts to improve its products.</td></tr>
+        <tr><th scope="row">Ollama</th><td>Preset, runs on your PC</td><td>No key, and nothing leaves your machine. Small local models rewrite less well and use a lot of RAM.</td></tr>
+        <tr><th scope="row">Custom</th><td>You enter a base URL, model and key</td><td>Any service with an OpenAI-compatible chat endpoint. The app's own notes name OpenAI, OpenRouter and LM Studio as examples.</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Free-tier limits change. Check your provider's own page.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot on-ink">
+  <div class="wrap">
+    <ul>
+      <li><a href="https://github.com/Maneet7805/PromptForge">Source on GitHub</a></li>
+      <li><a href="https://github.com/Maneet7805/PromptForge/issues/new/choose">Report a problem</a></li>
+      <li><a href="https://github.com/Maneet7805/PromptForge/blob/main/CONTRIBUTING.md">Contribute</a></li>
+      <li><a href="https://github.com/Maneet7805/PromptForge/blob/main/README.md#privacy">Privacy</a></li>
+      <li><a href="https://github.com/Maneet7805/PromptForge/blob/main/LICENSE">MIT licence</a></li>
+    </ul>
+    <p class="meta">This page makes no third-party requests, sets no cookies and has no analytics. © 2026 Maneet Arvind Mehta.</p>
+  </div>
+</footer>
+
+<script src="assets/main.js" defer></script>
+</body>
+</html>
