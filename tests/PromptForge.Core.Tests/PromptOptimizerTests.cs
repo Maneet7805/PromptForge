@@ -276,6 +276,39 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task Repairs_a_dropped_name_inside_a_full_sentence()
+    {
+        var replies = new Queue<string>([
+            Json("Keep the main screen very simple for the receptionists."),
+            Json("Keep the main screen very simple, because Mei Ling is afraid of change."),
+        ]);
+        var client = new FakeClient(_ => replies.Dequeue());
+        var result = await new PromptOptimizer(client).OptimizeAsync(
+            new OptimizeRequest { Text = "the receptionists are not technical and one of them, Mei Ling, is afraid of change so keep the main screen very simple" }, [Primary]);
+
+        Assert.Equal(2, client.Calls.Count);
+        Assert.Contains("Mei Ling", client.Calls[1].Messages[^1].Content);
+        Assert.Equal(RepairOutcome.Restored, result.Repair);
+        Assert.Contains("Mei Ling", result.Prompt);
+        Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public async Task A_name_appended_as_a_bare_fragment_is_rejected_and_warned_about()
+    {
+        var replies = new Queue<string>([
+            Json("Keep the main screen very simple for the receptionists."),
+            Json("Keep the main screen very simple for the receptionists.\n\nMei Ling"),
+        ]);
+        var result = await new PromptOptimizer(new FakeClient(_ => replies.Dequeue())).OptimizeAsync(
+            new OptimizeRequest { Text = "the receptionists are not technical and one of them, Mei Ling, is afraid of change so keep the main screen very simple" }, [Primary]);
+
+        Assert.Equal(RepairOutcome.NoImprovement, result.Repair);
+        Assert.DoesNotContain("Mei Ling", result.Prompt);
+        Assert.Contains(result.Warnings, w => w.Contains("Mei Ling"));
+    }
+
+    [Fact]
     public async Task Repair_outcome_is_restored_when_the_second_call_brings_details_back()
     {
         var replies = new Queue<string>([

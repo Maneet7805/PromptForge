@@ -100,7 +100,7 @@ Whatever the answers:
 
 - **Keep the draft's language**, including mixed-language drafts (a Russian instruction with English code stays that way). Never translate the instruction or the material.
 - **The user's own words stay**, including role lines, emphasis, odd demands and template slots they wrote (`{keywords}`, `[Brand]`). "Never add" is about PromptForge's additions; it's not a licence to remove the user's.
-- **Every exact detail stays exactly as written:** names, numbers, paths, code, errors, quotes. Today's checker already enforces this.
+- **Every exact detail stays exactly as written:** names, numbers, paths, code, errors, quotes. The checker enforces numbers, paths, code and quotes, and (#130) capitalised words such as names, months and places; it cannot see a name typed in lowercase.
 
 ## How deep a rewrite goes
 

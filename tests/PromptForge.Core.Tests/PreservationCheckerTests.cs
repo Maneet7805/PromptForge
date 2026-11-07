@@ -86,4 +86,49 @@ public class TemplatePlaceholderTests
         Assert.DoesNotContain("[the docs]", items);
         Assert.DoesNotContain("[i]", items);
     }
+
+    [Fact]
+    public void Capitalised_words_dropped_from_the_rewrite_are_reported()
+    {
+        var draft = "one of them, Mei Ling, is afraid of change, so keep the screen simple. order by 20 February.";
+        var rewrite = "Keep the screen simple. Order by 20.";
+
+        var missing = PreservationChecker.FindMissingDetails(draft, rewrite);
+
+        Assert.Contains("Mei Ling", missing);
+        Assert.Contains("February", missing);
+    }
+
+    [Fact]
+    public void Capitalised_words_kept_in_any_letter_case_are_not_reported()
+    {
+        var draft = "ask Aisha about the Python version";
+        var rewrite = "Ask AISHA about the python version.";
+
+        Assert.Empty(PreservationChecker.FindMissingDetails(draft, rewrite));
+    }
+
+    [Theory]
+    [InlineData("Please fix the login page.")]                       // first word of the draft
+    [InlineData("it fails. The cause is unknown. Give me a fix.")]   // first words of sentences
+    [InlineData("steps:\n- Open the app\n1. Click save")]           // first words of lines and list items
+    [InlineData("fix this: ```\nSettings Panel Broken\n``` now")]    // inside a code block
+    [InlineData("use `Foo Bar` here")]                               // inside inline code
+    public void Sentence_starts_and_code_are_not_treated_as_names(string draft)
+    {
+        Assert.Empty(PreservationChecker.ExtractCapitalised(draft));
+    }
+
+    [Fact]
+    public void A_name_that_starts_a_sentence_is_found_only_when_it_has_two_words()
+    {
+        Assert.Contains("Mei Ling", PreservationChecker.ExtractCapitalised("she is nervous. Mei Ling is afraid of change."));
+        Assert.Empty(PreservationChecker.ExtractCapitalised("she is nervous. Aisha is afraid of change."));
+    }
+
+    [Fact]
+    public void Exact_detail_checks_used_by_the_quality_check_do_not_include_capitalised_words()
+    {
+        Assert.Empty(PreservationChecker.FindMissing("ask Aisha at the Clinic", "ask someone."));
+    }
 }
