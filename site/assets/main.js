@@ -94,3 +94,37 @@ if (canvas && canvas.getContext) {
   }
   addEventListener('resize', () => { resize(); draw(performance.now()); });
 }
+
+// Scroll scene: the rewrite arrives word by word, sharpening out of a blur.
+// Only where the pinned scene runs; elsewhere the text is plain and complete.
+if (CSS.supports('animation-timeline: view()')
+    && matchMedia('(min-width: 900px) and (min-height: 640px) and (prefers-reduced-motion: no-preference)').matches) {
+  const lines = [...document.querySelectorAll('.win-body .rl')];
+  const words = [];
+  const split = (node) => {
+    [...node.childNodes].forEach((child) => {
+      if (child.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        child.textContent.split(/(\s+)/).forEach((part) => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.append(part); return; }
+          const w = document.createElement('span');
+          w.className = 'w sc';
+          w.textContent = part;
+          words.push(w);
+          frag.append(w);
+        });
+        child.replaceWith(frag);
+      } else if (child.nodeType === 1) {
+        split(child);
+      }
+    });
+  };
+  lines.forEach(split);
+  const FIRST = 52, SPAN = 24, EACH = 3;
+  words.forEach((w, i) => {
+    const start = FIRST + (i / words.length) * SPAN;
+    w.style.setProperty('--a', `${start.toFixed(2)}%`);
+    w.style.setProperty('--b', `${(start + EACH).toFixed(2)}%`);
+  });
+}

@@ -152,7 +152,14 @@ mark {
 .key { background: var(--ink); color: var(--chalk); border-color: color-mix(in srgb, var(--chalk) 45%, transparent); font-size: var(--t-1); padding: 3px 12px; }
 .host { display: none; }
 .review { background: var(--chalk); color: var(--ink); border-radius: var(--r-2); overflow: hidden; width: 100%; max-width: 560px; justify-self: end; }
-.win-bar { padding: var(--s-2) var(--s-4); font-size: var(--t-0); border-bottom: 1px solid var(--hair-on-chalk); color: var(--muted-on-chalk); }
+.win-bar { display: flex; justify-content: space-between; gap: var(--s-4); padding: var(--s-2) var(--s-4); font-size: var(--t-0); border-bottom: 1px solid var(--hair-on-chalk); color: var(--muted-on-chalk); }
+.status { display: inline-grid; justify-items: end; }
+.status > span { grid-area: 1 / 1; }
+.st-a { display: none; }
+.rail { display: none; position: absolute; left: -16px; top: 0; bottom: 0; width: 1px; background: var(--hair); }
+.rail i { display: block; height: 100%; background: var(--chalk); transform-origin: top; }
+.story-text { position: relative; }
+.w { display: inline; }
 .win-tabs { display: flex; gap: var(--s-4); padding: var(--s-2) var(--s-4) 0; font-size: var(--t-0); color: var(--muted-on-chalk); border-bottom: 1px solid var(--hair-on-chalk); }
 .win-tabs span { padding-bottom: var(--s-2); }
 .win-tabs .on { color: var(--ink); border-bottom: 2px solid var(--ink); font-weight: 500; }
@@ -193,14 +200,18 @@ mark {
     .sel { background: linear-gradient(var(--mark), var(--mark)) no-repeat left / 100% 100%; color: var(--ink); }
     .key { animation-name: press; }
     .lit { animation-name: lit; }
-    .rl { animation-name: reveal; }
+    .w { animation-name: word; }
+    .st-a { display: inline; animation-name: fade-out; }
+    .st-b { animation-name: fade-in; }
+    .rail { display: block; }
+    .rail i { animation-name: grow-y; }
     .host-new, .decide, .pasted { animation-name: fade-in; }
     .host-draft .sel { animation-name: sweep; }
-    .host-draft { animation: fade-out 1ms linear both; animation-timeline: --story; animation-range: contain 88% contain 94%; }
+    .host-draft { animation: fade-out 1ms linear both; animation-timeline: --story; animation-range: contain 90% contain 95%; }
 
     .review.sc {
       animation-name: win-in, win-out;
-      animation-range: contain 40% contain 52%, contain 84% contain 92%;
+      animation-range: contain 40% contain 52%, contain 88% contain 94%;
       animation-fill-mode: both, forwards;
     }
   }
@@ -208,6 +219,8 @@ mark {
 @keyframes sweep { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
 @keyframes press { 0%, 100% { transform: none; } 50% { transform: translateY(2px); border-bottom-width: 1px; } }
 @keyframes lit { from { opacity: .45; } to { opacity: 1; } }
+@keyframes word { from { opacity: 0; filter: blur(6px); } to { opacity: 1; filter: blur(0); } }
+@keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes reveal { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
