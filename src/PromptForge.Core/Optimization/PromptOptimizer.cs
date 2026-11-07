@@ -97,7 +97,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
         }
         else if (parsed.Verdict != Verdict.Unchanged)
         {
-            var missing = PreservationChecker.FindMissing(masked.Text, parsed.Prompt);
+            var missing = PreservationChecker.FindMissingDetails(masked.Text, parsed.Prompt);
             if (missing.Count > 0)
             {
                 missingBefore = missing.Count;
@@ -130,7 +130,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                         // detail as a bare fragment, which satisfies the checker but reads as a stray token.
                         if (repaired.Verdict != Verdict.Unchanged &&
                             repaired.Prompt.Length >= parsed.Prompt.Length * MinRepairLengthRatio &&
-                            PreservationChecker.FindMissing(masked.Text, repaired.Prompt).Count < missing.Count &&
+                            PreservationChecker.FindMissingDetails(masked.Text, repaired.Prompt).Count < missing.Count &&
                             !RepairFragments.HasBareDetail(repaired.Prompt, missing))
                         {
                             parsed = parsed with { Prompt = repaired.Prompt };
@@ -148,7 +148,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                     }
                 }
 
-                var stillMissing = PreservationChecker.FindMissing(masked.Text, parsed.Prompt);
+                var stillMissing = PreservationChecker.FindMissingDetails(masked.Text, parsed.Prompt);
                 missingAfter = stillMissing.Count;
                 if (stillMissing.Count > 0)
                     warnings.Add("Check these details from your draft; they may have been dropped: " + string.Join(", ", stillMissing.Take(8)));

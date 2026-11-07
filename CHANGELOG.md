@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- On long drafts the repair step now also puts back capitalised words the rewrite dropped (a person's name, a month, a place), inside a full sentence. Names typed in lowercase are not detected (#130).
+
 ## [1.5.0] - 2026-11-07
 
 ### Added
