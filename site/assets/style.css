@@ -89,18 +89,44 @@ mark {
 @media (max-width: 560px) { .top nav a:nth-child(-n+3) { display: none; } .top nav { gap: var(--s-4); } }
 
 /* Hero */
-.hero { padding-block: var(--s-16) var(--s-16); }
-.lead { font-size: var(--t-2); max-width: 46ch; margin-top: var(--s-6); }
-.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4) var(--s-6); margin: var(--s-8) 0 var(--s-12); max-width: none; }
-.pair { margin: 0; display: grid; gap: var(--s-6); max-width: 720px; border-top: 1px solid var(--hair); padding-top: var(--s-6); }
-@media (min-width: 720px) { .pair { grid-template-columns: 1fr 1fr; } .pair figcaption { grid-column: 1 / -1; } }
-.pair p { margin: 0; }
-.pair-label { color: var(--muted); font-size: var(--t-0); margin-bottom: var(--s-2) !important; }
-.pair .mono { font-size: var(--t-1); }
-.pair figcaption { color: var(--muted); font-size: var(--t-0); max-width: 62ch; }
+.hero { position: relative; overflow: hidden; padding-block: var(--s-16) var(--s-24); min-height: min(86vh, 760px); display: grid; align-items: center; }
+.hero .wrap { position: relative; width: 100%; }
+.field { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .3; pointer-events: none; }
+@media (min-width: 900px) { .field { opacity: .6; } }
+.hero h1 { font-size: clamp(2.125rem, 5vw, 3.75rem); line-height: 1.1; max-width: 22ch; }
+.lead { font-size: var(--t-2); max-width: 40ch; margin-top: var(--s-8); }
+.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4) var(--s-6); margin: var(--s-8) 0 0; max-width: none; }
+.replay { display: none; background: none; border: 0; padding: 0; color: var(--muted); font: inherit; font-size: var(--t-0); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 44px; }
+.replay.ready { display: inline-block; }
+.replay:hover { color: var(--fg); }
+
+/* The headline edits itself. Final text is the default; the draft is the
+   animation's starting point. r = words that get struck out, a = words
+   that replace them. */
+.edit .r { display: none; }
+.edit .a, .edit .r { white-space: pre; }
 @media (prefers-reduced-motion: no-preference) {
-  .hero .wrap { animation: enter 500ms var(--ease) both; }
+  .edit .r {
+    display: inline-block; overflow: hidden; vertical-align: bottom; max-width: 24ch;
+    color: var(--muted);
+    text-decoration: line-through; text-decoration-thickness: .06em; text-decoration-color: transparent;
+    animation:
+      strike 300ms var(--ease) calc(1.6s + var(--i) * 140ms) both,
+      collapse 420ms var(--ease) calc(2.1s + var(--i) * 140ms) both;
+  }
+  .edit .r::before { content: attr(data-w); }
+  .edit .a {
+    display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: .08em; margin-bottom: -.08em;
+    animation:
+      grow 420ms var(--ease) calc(2.1s + var(--i) * 140ms) both,
+      flash 1500ms linear calc(2.1s + var(--i) * 140ms) both;
+  }
+  .hero .lead, .hero .cta-row { animation: enter 600ms var(--ease) 3.4s both; }
 }
+@keyframes strike { to { text-decoration-color: var(--mark); } }
+@keyframes collapse { to { max-width: 0; opacity: 0; } }
+@keyframes grow { from { max-width: 0; opacity: 0; } to { max-width: 24ch; opacity: 1; } }
+@keyframes flash { 0%, 55% { background-color: var(--mark); color: var(--ink); } 100% { background-color: transparent; color: inherit; } }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } }
 
 /* Generic two-part layout */

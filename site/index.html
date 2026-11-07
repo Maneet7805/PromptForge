@@ -32,24 +32,15 @@
 <main id="main">
 
 <section class="hero on-ink" id="top">
+  <canvas class="field" id="field" aria-hidden="true"></canvas>
   <div class="wrap">
-    <h1>PromptForge is a free Windows tray app that rewrites your rough prompt into a clearer one before you send it.</h1>
-    <p class="lead">Write or select a draft in any text box, press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>, and read the rewrite. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to replace your text, or <kbd>Esc</kbd> to keep it.</p>
+    <h1 id="hl" class="edit" aria-label="PromptForge is a free Windows tray app that rewrites your rough prompt into a clearer one before you send it."><span class="r" style="--i:0" data-w="promptforge" aria-hidden="true"></span><span class="a" style="--i:0">PromptForge</span> <span>is a</span> <span class="a" style="--i:1">free </span><span class="r" style="--i:2" data-w="app for windows" aria-hidden="true"></span><span class="a" style="--i:2">Windows tray app</span> <span>that</span> <span class="r" style="--i:3" data-w="rewrite" aria-hidden="true"></span><span class="a" style="--i:3">rewrites</span> <span class="r" style="--i:4" data-w="ur" aria-hidden="true"></span><span class="a" style="--i:4">your</span> <span>rough</span> <span class="r" style="--i:5" data-w="promt" aria-hidden="true"></span><span class="a" style="--i:5">prompt</span> <span>into a</span> <span class="r" style="--i:6" data-w="more " aria-hidden="true"></span><span>clearer one before you</span> <span class="r" style="--i:7" data-w="sending" aria-hidden="true"></span><span class="a" style="--i:7">send</span> <span>it.</span></h1>
+    <p class="lead">Select your draft in any text box, press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>, and read the rewrite. Nothing is pasted until you press Replace.</p>
     <p class="cta-row">
       <a class="btn" href="https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge.exe">Download PromptForge.exe</a>
       <span class="meta">Windows 10 and 11, MIT licence. <a href="#install">Setup and the SmartScreen warning</a></span>
+      <button type="button" class="replay" id="replay">Replay the edit</button>
     </p>
-    <figure class="pair">
-      <div>
-        <p class="pair-label">You type</p>
-        <p class="mono">whats the capital of australia</p>
-      </div>
-      <div>
-        <p class="pair-label">You review</p>
-        <p class="mono"><mark>What is</mark> the capital of <mark>Australia?</mark></p>
-      </div>
-      <figcaption>A short example. Longer drafts get more help; drafts that are already good come back unchanged.</figcaption>
-    </figure>
   </div>
 </section>
 
