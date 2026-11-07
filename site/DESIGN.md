@@ -85,7 +85,7 @@ Derived, not new colours: muted text (`#AEB6BB` on ink, `#4D5B65` on chalk) and 
 ## Motion
 
 - One easing: `cubic-bezier(0.22, 1, 0.36, 1)`. Durations: 120ms (press), 200ms (state), 500ms (hero entrance).
-- Allowed: the scroll-linked scene (the scroll is the person's action); button press; copy-button state; the hero headline editing itself once on load; one ambient dither field in the hero only (stops when off screen or the tab is hidden, drawn once if motion is reduced).
+- Allowed: the scroll-linked scene (the scroll is the person's action); button press; copy-button state; the hero headline editing itself once on load; one ambient dither field in the hero only (stops when off screen or the tab is hidden, drawn once if motion is reduced). Section transitions: a dither edge where dark meets light (grows in as the section enters), the scroll scene dimming as the first light section arrives, and the hero dots fading as you leave it. All three are scroll-driven; with reduced motion the edge is static and the others do not run.
 - Animate only colour, background, opacity and transform.
 - Not allowed: other loops, shimmer, glow, float, parallax, `transition: all`, hover scale, per-section entrances.
 - The default state of every element is the final, readable state. Motion is added on top.
@@ -93,7 +93,7 @@ Derived, not new colours: muted text (`#AEB6BB` on ink, `#4D5B65` on chalk) and 
 
 ## Imagery and icons
 
-- No stock images, illustration, emoji or icon set. One texture: the chalk dither field in the hero.
+- No stock images, illustration, emoji or icon set. One texture: the dither dots, in the hero and along section edges.
 - The scene is an HTML/CSS mock, labelled as an example and not a recorded run. Real screenshots only if the owner supplies them.
 - Favicon: a new ink and mark "P" (`assets/favicon.svg`). The app icon is not used.
 

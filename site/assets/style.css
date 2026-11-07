@@ -184,6 +184,7 @@ mark {
     .story { padding-block: 0; }
     .story-track { height: 420vh; view-timeline: --story block; }
     .stage { position: sticky; top: 56px; min-height: calc(100vh - 56px); align-content: center; }
+    .stage { animation: scene-dim linear both; animation-timeline: --lim; animation-range: entry 0% entry 100%; }
 
     .host { display: block; grid-area: 1 / 1; align-self: start; background: var(--chalk); color: var(--ink); border-radius: var(--r-2); overflow: hidden; width: 100%; max-width: 560px; justify-self: end; margin-top: 3rem; }
     .mock { display: grid; }
@@ -226,6 +227,32 @@ mark {
 @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes win-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @keyframes win-out { from { opacity: 1; } to { opacity: 0; } }
+
+
+/* Section edges: where dark meets light, the previous colour dissolves into
+   the next as a field of dots, the same texture as the hero. */
+.edge { position: relative; }
+.on-chalk.edge { --edge: var(--ink); }
+.on-ink.edge { --edge: var(--chalk); }
+.edge::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 56px; pointer-events: none;
+  background: radial-gradient(circle, var(--edge) 1.6px, transparent 2.1px) 0 0 / 6px 6px;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    body { timeline-scope: --lim; }
+    .edge { view-timeline: --e block; }
+    .edge::before { animation: edge-in linear both; animation-timeline: --e; animation-range: entry 0% entry 70%; }
+    .limits { view-timeline: --lim block, --e block; }
+    .hero { view-timeline: --hero block; }
+    .field { animation: field-out linear both; animation-timeline: --hero; animation-range: exit 0% exit 90%; }
+  }
+}
+@keyframes edge-in { from { height: 0; opacity: 0; } to { height: 56px; opacity: 1; } }
+@keyframes field-out { to { opacity: 0; } }
+@keyframes scene-dim { to { opacity: .25; transform: scale(.97); } }
 
 /* Limits */
 .rules { display: grid; gap: var(--s-8) var(--s-12); margin: 0; }
