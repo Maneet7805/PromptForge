@@ -72,6 +72,7 @@ Choices the draft leaves open that would change the answer a lot: which drive, w
 
 - **Changes:** keep the reference as written, and refer to an attachment when the draft says "this". PromptForge can't see the conversation, but the receiving AI usually can (the same chat, the attached screenshot, the open repo). So the reference stays, and the rewrite adds nothing about it.
 - **Never:** add "if you don't have it, ask me" to the prompt, insert a placeholder like "(describe the issue)", or name a product the draft doesn't name. If the reference is truly ambiguous, the review window can ask; the prompt stays clean.
+- **Short replies and corrections** ("no numbers", "make it shorter", "the second one") point to the earlier turn too. They stay as written, with spelling and punctuation fixed only. The rewrite doesn't fill in what they refer to ("the specified content"), ask which material is meant, or add a request (#68).
 - Covers #25 and #27.
 
 ### 6. Can the receiver take actions that are hard to undo?

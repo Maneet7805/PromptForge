@@ -68,6 +68,15 @@ public partial class SystemPromptTests
     }
 
     [Fact]
+    public void A_reply_that_refers_to_the_earlier_turn_is_kept_and_nothing_is_filled_in()
+    {
+        // "no numbers" and "make it shorter" came back as "Please make the specified content shorter" plus a request for the text (#68).
+        Assert.Contains("A short reply or correction that only makes sense after an earlier turn", Text);
+        Assert.Contains("do not fill in what it refers to, ask which material is meant, or add a request", Text);
+        Assert.Contains("Draft: \"only the first two\"", Text);
+    }
+
+    [Fact]
     public void An_open_ended_draft_gets_suggestions_not_a_role_line_or_requirements()
     {
         Assert.Contains("Do not add a role line (\"act as my tutor\"), a \"Requirements\" list", Text);

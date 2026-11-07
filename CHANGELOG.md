@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- Short replies that refer to the earlier chat ("no numbers", "make it shorter") are kept as written instead of being turned into "Please make the specified content shorter" (#68).
+
 ## [1.5.0] - 2026-11-07
 
 ### Added
