@@ -4,6 +4,12 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- When an update is available, a small card offers it (Update now / Later) and then shows download progress with a Cancel button, instead of tray balloons (#134).
+
+### Fixed
+- Cancelling an update download now removes the partly downloaded file, and a download that takes too long says so (#134).
+
 ## [1.5.0] - 2026-11-07
 
 ### Added

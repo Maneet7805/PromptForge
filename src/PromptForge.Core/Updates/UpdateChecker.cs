@@ -14,7 +14,7 @@ public sealed class UpdateException(string message, Exception? inner = null) : E
 /// Sends one anonymous request to api.github.com; no prompt text, settings or keys are involved.
 /// Installing is left to the caller (the downloaded exe installs itself like a manual download).
 /// </summary>
-public sealed class UpdateChecker(HttpClient http, string repository = UpdateChecker.DefaultRepository, TimeProvider? time = null)
+public sealed class UpdateChecker(HttpClient http, string repository = UpdateChecker.DefaultRepository, TimeProvider? time = null, TimeSpan? downloadTimeout = null)
 {
     public const string DefaultRepository = "Maneet7805/PromptForge";
     public const string ExeAssetName = "PromptForge.exe";
@@ -23,7 +23,9 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     private static readonly TimeSpan CheckTimeout = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan DefaultDownloadTimeout = TimeSpan.FromMinutes(5);
+    private const int CopyBufferSize = 64 * 1024;
+    private const long UnknownSizeReportEvery = 256 * 1024;
 
     /// <summary>Returns the latest release if it is newer than <paramref name="currentVersion"/>, otherwise null.</summary>
     public async Task<ReleaseInfo?> CheckAsync(string currentVersion, CancellationToken ct = default)
@@ -76,17 +78,22 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
 
     /// <summary>
     /// Downloads the release exe into <paramref name="directory"/> and checks it against the release's
-    /// SHA256SUMS.txt. Throws <see cref="UpdateException"/> (and deletes the file) if they don't match.
+    /// SHA256SUMS.txt. Throws <see cref="UpdateException"/> (and deletes the file) if they don't match or the
+    /// download times out. If <paramref name="ct"/> is cancelled the partial file is deleted and
+    /// <see cref="OperationCanceledException"/> is thrown. <paramref name="progress"/> is called from the
+    /// downloading thread: when the whole percent changes, or every 256 KiB if the server sent no size.
     /// </summary>
-    public async Task<string> DownloadVerifiedAsync(ReleaseInfo release, string directory, string currentVersion, CancellationToken ct = default)
+    public async Task<string> DownloadVerifiedAsync(ReleaseInfo release, string directory, string currentVersion,
+        CancellationToken ct = default, IProgress<UpdateProgress>? progress = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(DownloadTimeout);
+        timeout.CancelAfter(downloadTimeout ?? DefaultDownloadTimeout);
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, ExeAssetName);
 
         try
         {
+            progress?.Report(new UpdateProgress(UpdateStage.Preparing, 0, null));
             var sums = await GetStringAsync(release.ChecksumsUrl, currentVersion, timeout.Token).ConfigureAwait(false);
             var expected = FindChecksum(sums, ExeAssetName)
                 ?? throw new UpdateException($"The release has no checksum for {ExeAssetName}, so it wasn't installed.");
@@ -99,9 +106,11 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
                     throw new UpdateException($"Downloading the update failed ({(int)response.StatusCode}).");
                 await using var source = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
                 await using var file = File.Create(path);
-                await source.CopyToAsync(file, timeout.Token).ConfigureAwait(false);
+                await CopyWithProgressAsync(source, file, response.Content.Headers.ContentLength, progress, timeout.Token).ConfigureAwait(false);
             }
 
+            var size = new FileInfo(path).Length;
+            progress?.Report(new UpdateProgress(UpdateStage.Verifying, size, size));
             string actual;
             await using (var file = File.OpenRead(path))
                 actual = Convert.ToHexStringLower(await SHA256.HashDataAsync(file, timeout.Token).ConfigureAwait(false));
@@ -113,10 +122,42 @@ public sealed class UpdateChecker(HttpClient http, string repository = UpdateChe
             }
             return path;
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException && !ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            TryDelete(path);
+            throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            TryDelete(path); // not the caller: the download timed out
+            throw new UpdateException("The download took too long. Try again.", ex);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
         {
             TryDelete(path);
             throw new UpdateException("Downloading the update failed. Try again later.", ex);
+        }
+    }
+
+    private static async Task CopyWithProgressAsync(Stream source, Stream destination, long? total, IProgress<UpdateProgress>? progress, CancellationToken ct)
+    {
+        var buffer = new byte[CopyBufferSize];
+        long received = 0, lastReported = 0;
+        int? lastPercent = null;
+        progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, total));
+        int read;
+        while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+        {
+            await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+            received += read;
+            if (progress is null) continue;
+
+            var update = new UpdateProgress(UpdateStage.Downloading, received, total);
+            var due = update.Percent is { } percent ? percent != lastPercent : received - lastReported >= UnknownSizeReportEvery;
+            if (!due) continue;
+            lastPercent = update.Percent;
+            lastReported = received;
+            progress.Report(update);
         }
     }
 
