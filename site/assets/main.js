@@ -38,7 +38,8 @@ if (headline && replay && !reduceMotion.matches) {
 const canvas = document.getElementById('field');
 if (canvas && canvas.getContext) {
   const ctx = canvas.getContext('2d');
-  const CELL = 6;
+  const narrow = matchMedia('(max-width: 899px)').matches;
+  const CELL = narrow ? 10 : 6;
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   let cols = 0, rows = 0, px = -9999, py = -9999, running = false, visible = true, last = 0;
 
@@ -55,7 +56,7 @@ if (canvas && canvas.getContext) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#EBF0F2';
     for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
+      for (let x = px < 0 ? Math.floor(cols * 0.3) : 0; x < cols; x++) {
         const u = x / cols, v = y / rows;
         let val = 0.5 + 0.5 * Math.sin(u * 7 + t * 0.5) * Math.cos(v * 5 - t * 0.4);
         val *= Math.min(1, Math.max(0, (u - 0.3) * 1.6));
@@ -68,11 +69,11 @@ if (canvas && canvas.getContext) {
 
   const loop = (now) => {
     if (!running) return;
-    if (now - last > 50) { draw(now); last = now; }
+    if (now - last > 66) { draw(now); last = now; }
     requestAnimationFrame(loop);
   };
   const start = () => {
-    if (running || reduceMotion.matches || !visible || document.hidden) return;
+    if (running || reduceMotion.matches || narrow || !visible || document.hidden) return;
     running = true;
     requestAnimationFrame(loop);
   };

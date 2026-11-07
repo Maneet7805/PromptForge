@@ -100,32 +100,29 @@ mark {
 .replay.ready { display: inline-block; }
 .replay:hover { color: var(--fg); }
 
-/* The headline edits itself. Final text is the default; the draft is the
-   animation's starting point. r = words that get struck out, a = words
-   that replace them. */
-.edit .r { display: none; }
-.edit .a, .edit .r { white-space: pre; }
+/* The headline edits itself. The final sentence is the page text and never
+   moves. The rough draft is an overlay on top of it: its wrong words get
+   struck, then it fades and the final sentence fades in with the changed
+   words flashing yellow. Nothing reflows, so nothing shifts. */
+.hero h1 { position: relative; }
+.draft { display: none; }
 @media (prefers-reduced-motion: no-preference) {
-  .edit .r {
-    display: inline-block; overflow: hidden; vertical-align: bottom; max-width: 24ch;
+  .edit .draft {
+    display: block; position: absolute; inset: 0; white-space: pre-wrap; pointer-events: none;
+    animation: fade-out 300ms var(--ease) 2.1s both;
+  }
+  .edit .draft i { font-style: normal; }
+  .edit .draft i::before { content: attr(data-w); }
+  .edit .draft i.x {
     color: var(--muted);
     text-decoration: line-through; text-decoration-thickness: .06em; text-decoration-color: transparent;
-    animation:
-      strike 300ms var(--ease) calc(1.6s + var(--i) * 140ms) both,
-      collapse 420ms var(--ease) calc(2.1s + var(--i) * 140ms) both;
+    animation: strike 300ms var(--ease) calc(1.1s + var(--i) * 140ms) both;
   }
-  .edit .r::before { content: attr(data-w); }
-  .edit .a {
-    display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: .08em; margin-bottom: -.08em;
-    animation:
-      grow 420ms var(--ease) calc(2.1s + var(--i) * 140ms) both,
-      flash 1500ms linear calc(2.1s + var(--i) * 140ms) both;
-  }
-  .hero .lead, .hero .cta-row { animation: enter 600ms var(--ease) 3.4s both; }
+  .edit .final { animation: fade-in 400ms var(--ease) 2.45s both; }
+  .edit .a { animation: flash 1500ms linear 2.45s both; }
+  .hero .lead, .hero .cta-row { animation: enter 600ms var(--ease) 3.2s both; }
 }
 @keyframes strike { to { text-decoration-color: var(--mark); } }
-@keyframes collapse { to { max-width: 0; opacity: 0; } }
-@keyframes grow { from { max-width: 0; opacity: 0; } to { max-width: 24ch; opacity: 1; } }
 @keyframes flash { 0%, 55% { background-color: var(--mark); color: var(--ink); } 100% { background-color: transparent; color: inherit; } }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } }
 
@@ -219,7 +216,7 @@ mark {
 }
 @keyframes sweep { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
 @keyframes press { 0%, 100% { transform: none; } 50% { transform: translateY(2px); border-bottom-width: 1px; } }
-@keyframes lit { from { opacity: .45; } to { opacity: 1; } }
+@keyframes lit { from { opacity: .8; } to { opacity: 1; } }
 @keyframes word { from { opacity: 0; filter: blur(6px); } to { opacity: 1; filter: blur(0); } }
 @keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes reveal { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
