@@ -23,6 +23,38 @@ public static partial class PreservationChecker
             .ToList();
     }
 
+    /// <summary>
+    /// <see cref="FindMissing"/> plus capitalised words (names, months, places). Used by the repair step; the quality
+    /// check keeps using <see cref="FindMissing"/> so its pass rates stay comparable across versions.
+    /// </summary>
+    public static IReadOnlyList<string> FindMissingDetails(string original, string rewritten)
+    {
+        var missing = FindMissing(original, rewritten).ToList();
+        var normalizedRewrite = Normalize(rewritten);
+        missing.AddRange(ExtractCapitalised(original)
+            .Where(word => !normalizedRewrite.Contains(Normalize(word), StringComparison.OrdinalIgnoreCase)));
+        return missing;
+    }
+
+    /// <summary>
+    /// Capitalised words in the middle of a sentence, and runs of two or more capitalised words anywhere: "Mei Ling",
+    /// "February", "Malaysia". It cannot tell a person from a place or a product, and it cannot see names typed in
+    /// lowercase. A single capitalised word that opens a sentence or line is skipped, since it only looks capitalised
+    /// because of where it stands.
+    /// </summary>
+    public static IReadOnlyList<string> ExtractCapitalised(string text)
+    {
+        var prose = CodeSpanRegex().Replace(MarkerRegex().Replace(text, " "), " ");
+        var words = new List<string>();
+        foreach (Match m in CapitalisedRunRegex().Matches(prose))
+        {
+            var startsSentence = SentenceOpeningRegex().IsMatch(prose.AsSpan(0, m.Index));
+            if (startsSentence && !m.Value.Contains(' ')) continue;
+            words.Add(m.Value);
+        }
+        return words.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     /// <summary>Details that must appear verbatim in any faithful rewrite.</summary>
     public static IReadOnlyList<string> ExtractProtected(string text)
     {
@@ -65,6 +97,17 @@ public static partial class PreservationChecker
 
     [GeneratedRegex(@"\[\[BLOCK_\d+\]\]")]
     private static partial Regex MarkerRegex();
+
+    [GeneratedRegex(@"```.*?```|`[^`\n]*`", RegexOptions.Singleline)]
+    private static partial Regex CodeSpanRegex();
+
+    // One or more Capitalised words in a row ("Mei Ling"), not part of a longer word or contraction.
+    [GeneratedRegex(@"(?<![\w'’])[A-Z][a-z]+(?:[ ][A-Z][a-z]+)*(?![\w])")]
+    private static partial Regex CapitalisedRunRegex();
+
+    // Text before a word that ends in a sentence stop or colon, or starts a line (optionally after a list marker).
+    [GeneratedRegex(@"(?:^|[.!?:]|\n)\s*(?:[-*]\s+|\d+[.)]\s+)?$")]
+    private static partial Regex SentenceOpeningRegex();
 
     [GeneratedRegex(@"https?://[^\s<>""'`]+", RegexOptions.IgnoreCase)]
     private static partial Regex UrlRegex();
