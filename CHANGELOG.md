@@ -4,7 +4,11 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+- When an update is available, a small card offers it (Update now / Later) and then shows download progress with a Cancel button, instead of tray balloons (#134).
+
 ### Fixed
+- Cancelling an update download now removes the partly downloaded file, and a download that takes too long says so (#134).
 - On long drafts the repair step now also puts back capitalised words the rewrite dropped (a person's name, a month, a place), inside a full sentence. Names typed in lowercase are not detected (#130).
 
 ## [1.5.0] - 2026-11-07

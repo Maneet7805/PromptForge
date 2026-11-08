@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PromptForge: rough prompt in, clear prompt out</title>
+<meta name="description" content="A free Windows tray app. Press a hotkey in any text box, read the rewrite, then decide whether it gets pasted.">
+<link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" type="image/webp" href="media/icon.webp">
+<meta name="theme-color" content="#070A10">
+<style>
+@font-face{font-family:Inter;font-style:normal;font-weight:300 800;font-display:swap;src:url(assets/fonts/inter-latin.woff2) format("woff2")}
+
+:root{
+  --ink:#070A10; --text:#E9EDF2; --muted:#9FABB8; --line:rgba(255,255,255,.10);
+  --glass:rgba(13,17,25,.66); --peach:#F49D70; --peach-hi:#FBBC94; --green:#85AB8B;
+  --r:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--text);font-family:Inter,system-ui,sans-serif;font-optical-sizing:auto;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:-2;display:block}
+body::before{content:"";position:fixed;inset:0;z-index:-1;opacity:var(--ov,1);background:linear-gradient(180deg,rgba(5,8,13,.30),rgba(5,8,13,.18) 40%,rgba(5,8,13,.40));pointer-events:none}
+a{color:inherit}
+kbd{font:600 .82em/1 Inter,sans-serif;padding:.3em .55em;border-radius:7px;background:rgba(255,255,255,.08);border:1px solid var(--line);border-bottom-width:2px;white-space:nowrap}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+h1,h2,h3{font-weight:600;letter-spacing:-.025em;line-height:1.06}
+h2{font-size:clamp(34px,5vw,60px)}
+.sub{color:var(--muted);font-size:clamp(16px,1.6vw,19px);max-width:520px}
+.btn{display:inline-flex;align-items:center;gap:10px;height:50px;padding:0 26px;border-radius:999px;font-weight:600;font-size:15px;text-decoration:none;border:0;cursor:pointer;transition:transform .2s,background .2s}
+.btn.w{background:#fff;color:#0B0F16}.btn.w:hover{transform:translateY(-2px);background:#f3f3f3}
+.btn.g{background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--line)}.btn.g:hover{background:rgba(255,255,255,.14)}
+section{position:relative}
+.pad{padding:clamp(90px,14vw,170px) 0}
+
+/* nav */
+nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:6px;padding:7px 8px 7px 16px;border-radius:999px;background:rgba(10,13,19,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);width:min(720px,calc(100% - 24px))}
+nav .brand{display:flex;align-items:center;gap:9px;font-weight:650;text-decoration:none;margin-right:auto;font-size:15px}
+nav .brand img{width:24px;height:24px;border-radius:6px}
+nav a.l{font-size:14px;color:var(--muted);text-decoration:none;padding:8px 12px;border-radius:999px}
+nav a.l:hover{color:#fff;background:rgba(255,255,255,.07)}
+nav .btn{height:38px;padding:0 18px;font-size:14px}
+@media(max-width:640px){nav a.l{display:none}}
+
+/* hero */
+.hero{min-height:100vh;display:flex;align-items:center;padding:130px 0 80px;text-align:center}
+.hero h1{font-size:clamp(44px,8vw,104px);letter-spacing:-.04em;line-height:.98}
+.hero h1 em{font-style:normal;color:var(--peach-hi)}
+.hero .sub{margin:22px auto 0;max-width:560px}
+.hero .row{margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.note{margin-top:16px;font-size:13px;color:var(--muted)}
+.rise{opacity:0;transform:translateY(22px);animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* composer demo */
+.comp{margin:56px auto 0;width:min(680px,100%);text-align:left;background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;padding:20px 22px 16px;position:relative;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.comp .win{display:flex;gap:6px;margin-bottom:14px}
+.comp .win i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.16)}
+.comp .win span{margin-left:auto;font-size:12px;color:var(--muted)}
+.comp .body{min-height:132px;font-size:16.5px;line-height:1.6;position:relative}
+.comp .draft,.comp .imp{transition:opacity .5s,filter .5s}
+.comp .draft.gone{opacity:0;filter:blur(6px)}
+.comp .imp{position:absolute;inset:0;opacity:0}
+.comp .imp.in{opacity:1}
+.comp .imp p+p{margin-top:8px}
+.caret{display:inline-block;width:2px;height:1.1em;background:var(--peach);vertical-align:-.18em;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+mark{background:rgba(244,157,112,.22);color:var(--peach-hi);border-radius:5px;padding:0 3px}
+.comp .q{margin-top:12px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;opacity:0;transform:translateY(6px);transition:.5s}
+.comp .q.in{opacity:1;transform:none}
+.comp .q b{color:var(--text);font-weight:600}
+.comp .bar{margin-top:14px;display:flex;align-items:center;gap:10px}
+.comp .bar .hint{font-size:12.5px;color:var(--muted);margin-right:auto}
+.pill{height:38px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--text);font:600 14px Inter;display:inline-flex;align-items:center;gap:8px;transition:.25s}
+.pill.main{background:linear-gradient(180deg,var(--peach-hi),var(--peach));color:#2a1409;border-color:transparent}
+.pill.press{transform:scale(.95)}
+.pill.heat{box-shadow:0 0 0 6px rgba(244,157,112,.18)}
+.pill[hidden]{display:none}
+.cursor{position:absolute;left:0;top:0;width:18px;height:18px;pointer-events:none;opacity:0;transition:transform .9s cubic-bezier(.5,0,.2,1),opacity .3s;z-index:3}
+.done{position:absolute;right:22px;bottom:70px;font-size:12.5px;color:var(--green);opacity:0;transition:.4s}
+.done.in{opacity:1}
+
+/* how it works: pinned workbench */
+.how{height:440vh}
+.pin{position:sticky;top:0;height:100vh;display:flex;align-items:center;padding-top:70px}
+.pin .wrap{display:flex;flex-direction:column;gap:22px;width:100%;max-width:1160px}
+.hd{display:grid;grid-template-columns:auto 1fr;gap:clamp(18px,3vw,44px);align-items:center}
+.num{font-size:clamp(84px,13vw,176px);font-weight:700;line-height:.78;letter-spacing:-.06em;color:transparent;-webkit-text-stroke:2px #14171C;transition:transform .5s cubic-bezier(.2,.7,.2,1),opacity .4s}
+.num.flip{transform:translateY(14px);opacity:0}
+.txt{position:relative;min-height:clamp(96px,14vh,132px)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.step{position:absolute;inset:0;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s;pointer-events:none}
+.step.on{opacity:1;transform:none}
+.step h3{font-size:clamp(32px,4.6vw,64px);margin-bottom:10px}
+.step p{color:var(--muted);font-size:clamp(15px,1.5vw,18px);max-width:560px}
+.stage{position:relative;height:min(52vh,540px);width:100%}
+.layer{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transform:translateY(26px) scale(.98);transition:opacity .55s,transform .7s cubic-bezier(.2,.7,.2,1);pointer-events:none}
+.layer.on{opacity:1;transform:none}
+.nw{position:relative;width:min(820px,100%);height:100%;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 70px rgba(50,35,20,.22);padding:20px 28px;overflow:hidden}
+.nw .t{display:flex;gap:6px;margin-bottom:16px;align-items:center}
+.nw .t i{width:10px;height:10px;border-radius:50%;background:rgba(20,24,29,.16)}
+.nw .t span{margin-left:auto;font-size:12.5px;color:#5a636d}
+.nw p{font:400 clamp(18px,2.3vw,26px)/1.6 Inter;color:#1b2027;letter-spacing:-.01em}
+.nw.dim p{opacity:.5}
+.scan{position:absolute;left:0;right:0;top:0;height:90px;background:linear-gradient(180deg,rgba(244,157,112,0),rgba(244,157,112,.38) 85%,rgba(244,157,112,.9));opacity:0}
+.layer.on .scan{animation:scan 1.6s ease-in-out .4s infinite}
+@keyframes scan{0%{transform:translateY(-100%);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateY(calc(min(52vh,540px)));opacity:0}}
+.keyrow{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(closest-side,rgba(236,231,222,.85),rgba(236,231,222,0))}
+.keys{display:flex;align-items:center;gap:14px}
+.keys b{color:#58616B;font-weight:400;font-size:28px}
+.keys kbd{font-size:clamp(26px,5vw,54px);padding:.6em .9em;border-radius:16px;background:#14171C;color:#fff;border:0;border-bottom:7px solid #000;opacity:0;transform:translateY(-70px)}
+.layer.on .keys kbd{animation:drop .5s cubic-bezier(.3,1.4,.5,1) forwards}
+.layer.on .keys kbd:nth-of-type(2){animation-delay:.2s}.layer.on .keys kbd:nth-of-type(3){animation-delay:.4s}
+@keyframes drop{0%{opacity:0;transform:translateY(-70px)}70%{opacity:1;transform:translateY(4px);border-bottom-width:2px}100%{opacity:1;transform:translateY(3px);border-bottom-width:3px}}
+.keyrow small{font-size:15px;color:#2a3037;background:rgba(255,255,255,.8);padding:7px 16px;border-radius:999px;border:1px solid var(--line)}
+.ann{position:relative;width:min(100%,calc(min(52vh,540px)*1.3615));aspect-ratio:802/589}
+.shot{width:100%;height:100%;display:block;border-radius:16px;border:1px solid rgba(20,24,29,.25);box-shadow:0 30px 70px rgba(50,35,20,.3)}
+.tag{position:absolute;display:inline-flex;align-items:center;gap:7px;font-size:clamp(10.5px,1.15vw,13px);font-weight:600;color:#fff;background:#14171C;padding:6px 12px;border-radius:999px;white-space:nowrap;box-shadow:0 8px 20px rgba(0,0,0,.35);opacity:0;transform:translateY(8px) scale(.92)}
+.tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c,#F49D70)}
+.layer.on .tag{animation:pop .5s cubic-bezier(.2,.9,.3,1.2) forwards;animation-delay:calc(.35s + var(--i,0)*.18s)}
+@keyframes pop{to{opacity:1;transform:none}}
+.rail{display:flex;gap:10px;justify-content:center}
+.rail span{font-size:13.5px;font-weight:600;color:#2F363E;padding:8px 18px;border-radius:999px;border:1px solid rgba(20,24,29,.14);background:rgba(255,255,255,.6);transition:.35s}
+.rail span.on{background:#14171C;color:#fff;border-color:#14171C}
+@media(max-width:820px){.hd{grid-template-columns:1fr;gap:6px}.num{font-size:72px}.how{height:480vh}.stage{height:44vh}.txt{min-height:120px}.ann{width:min(100%,calc(44vh*1.3615))}.keys kbd{font-size:24px}}
+
+/* trust rows */
+.trust h2{max-width:760px;margin-bottom:clamp(60px,9vw,110px)}
+.tr{display:grid;grid-template-columns:1fr 1fr;gap:clamp(30px,6vw,90px);align-items:center;padding:clamp(40px,6vw,70px) 0;border-top:1px solid var(--line)}
+.tr:nth-child(odd) .vis{order:-1}
+.tr h3{font-size:clamp(28px,3.4vw,42px);margin-bottom:14px}
+.tr p{color:var(--muted);font-size:17px;max-width:440px}
+.vis{background:var(--glass);backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:var(--r);padding:26px;min-height:200px;display:flex;flex-direction:column;justify-content:center;gap:12px}
+.vis .lab{font-size:12px;color:var(--muted)}
+.mono{font:500 14.5px/1.7 ui-monospace,"Cascadia Mono",Consolas,monospace;color:#dfe5ec}
+.keep{display:inline;border-radius:6px;padding:1px 6px;background:rgba(133,171,139,.16);color:#b9d6be;border:1px solid rgba(133,171,139,.35)}
+.arrow{color:var(--muted);font-size:13px}
+.qbox{font-size:15px;line-height:1.55}.qbox b{display:block;margin-bottom:6px}
+.eq{display:flex;gap:12px;flex-wrap:wrap}
+.eq .pill{height:44px;padding:0 22px;font-size:15px}
+.eq .pill small{opacity:.7;font-weight:500}
+@media(max-width:820px){.tr{grid-template-columns:1fr}.tr:nth-child(odd) .vis{order:0}}
+
+/* where */
+.where .wrap{text-align:center}
+.where h2{margin:0 auto 22px;max-width:760px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:760px;margin:40px auto 0}
+.chips span{padding:11px 20px;border-radius:999px;border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(10px);font-weight:500;font-size:15px}
+.where .sub{margin:0 auto}
+.fine{margin-top:26px;font-size:14px;color:var(--muted);max-width:620px;margin-left:auto;margin-right:auto}
+
+/* voice */
+.voice .wrap{display:grid;grid-template-columns:1fr 1fr;gap:clamp(30px,6vw,90px);align-items:center}
+.voice h2{margin-bottom:18px}
+.wave{display:flex;align-items:center;gap:5px;height:90px;margin-bottom:22px}
+.wave i{flex:1;max-width:7px;border-radius:4px;background:linear-gradient(var(--peach-hi),var(--peach));height:12%;animation:wv 1.2s ease-in-out infinite}
+@keyframes wv{0%,100%{height:12%}50%{height:var(--h)}}
+@media(max-width:820px){.voice .wrap{grid-template-columns:1fr}}
+
+/* numbers */
+.nums .wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:left}
+.nums .c{border-left:1px solid var(--line);padding:6px 0 6px 26px}
+.nums .big{font-size:clamp(64px,9vw,120px);font-weight:600;letter-spacing:-.05em;line-height:1}
+.nums .big small{font-size:.4em;color:var(--peach-hi);letter-spacing:-.02em;margin-left:4px}
+.nums p{color:var(--muted);margin-top:10px;max-width:260px;font-size:15.5px}
+.nums .foot{grid-column:1/-1;margin-top:30px;font-size:14px;color:var(--muted)}
+.nums .foot a{color:var(--text)}
+@media(max-width:820px){.nums .wrap{grid-template-columns:1fr;gap:40px}}
+
+/* install */
+.inst .box{background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:28px;padding:clamp(28px,5vw,64px);display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(30px,5vw,70px)}
+.inst h2{margin-bottom:26px}
+.inst ol{list-style:none;counter-reset:s;display:grid;gap:18px}
+.inst li{counter-increment:s;display:flex;gap:16px;color:var(--muted);font-size:16.5px}
+.inst li::before{content:counter(s);flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--peach-hi)}
+.inst li b{color:var(--text);font-weight:600}
+.inst .side{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.ver{font-size:13px;color:var(--muted)}
+.side .btn{height:56px;font-size:16px;justify-content:center}
+.side .small{font-size:13.5px;color:var(--muted)}
+.side .small b{color:var(--text)}
+@media(max-width:820px){.inst .box{grid-template-columns:1fr}}
+
+/* faq */
+.faq .wrap{max-width:820px}
+.faq h2{margin-bottom:40px}
+details{border-top:1px solid var(--line);padding:22px 0}
+details:last-of-type{border-bottom:1px solid var(--line)}
+summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:20px;font-size:19px;font-weight:550;letter-spacing:-.01em}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-weight:300;font-size:26px;line-height:1;color:var(--muted);transition:transform .3s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{color:var(--muted);margin-top:12px;max-width:640px;font-size:16.5px}
+
+/* close + footer */
+.close{text-align:center;padding:clamp(100px,16vw,200px) 0 80px}
+.close h2{font-size:clamp(44px,8vw,100px);letter-spacing:-.04em;margin-bottom:30px}
+footer{padding:34px 0 40px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
+footer a{text-decoration:none}footer a:hover{color:#fff}
+footer .sp{margin-left:auto}
+
+
+/* light sections */
+.light{color:#14171C;--text:#14171C;--muted:#2F363E;--line:rgba(20,24,29,.13);--glass:rgba(255,255,255,.72);--peach-hi:#B4531F}
+.light kbd{background:rgba(20,24,29,.06)}
+.light .btn.w{background:#14171C;color:#fff}.light .btn.w:hover{background:#000}
+.light mark{background:rgba(244,157,112,.32);color:#7E3210}
+.light .chips span{background:#fff;color:#14171C}
+.light .vis{backdrop-filter:none}
+.light .shot{box-shadow:0 24px 60px rgba(40,30,20,.22)}
+.light .fake{background:#fff;color:#14171C}.light .fake p{color:#222831}.light .fake .t i{background:rgba(20,24,29,.16)}
+.light .keys{background:#fff}
+.light .layer.on .keys kbd{background:rgba(244,157,112,.28);border-color:rgba(180,83,31,.6);color:#7E3210}
+.light .dots i{background:rgba(20,24,29,.16)}.light .dots i.on{background:#C2602F}
+.light .cap{background:rgba(20,24,29,.78)}
+.light .nums .big small,.light .step .n{color:#B4531F}
+.light .num{-webkit-text-stroke-color:#14171C}
+.light summary::after{color:#14171C}
+
+/* reveal */
+.rv.pre{opacity:0;transform:translateY(28px)}
+.rv{transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .rise{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<nav>
+  <a class="brand" href="#top"><img src="media/icon.webp" alt="">PromptForge</a>
+  <a class="l" href="#how">How it works</a>
+  <a class="l" href="#trust">Why trust it</a>
+  <a class="l" href="#faq">FAQ</a>
+  <a class="btn w" href="#install">Download</a>
+</nav>
+
+<header class="hero" id="top" data-th="d">
+  <div class="wrap">
+    <h1 class="rise">Say it rough.<br><em>Send it sharp.</em></h1>
+    <p class="sub rise" style="animation-delay:.12s">Press a hotkey in any text box. PromptForge shows a clearer version of your prompt, and nothing is pasted until you say so.</p>
+    <div class="row rise" style="animation-delay:.22s">
+      <a class="btn w" href="#install">Download for Windows</a>
+      <a class="btn g" href="https://github.com/Maneet7805/PromptForge">View on GitHub</a>
+    </div>
+    <p class="note rise" style="animation-delay:.3s">Free and open source (MIT) · Windows 10 and 11 · bring a free Groq key</p>
+
+    <div class="comp rise" style="animation-delay:.4s" id="comp" aria-label="Animated demo: a rough prompt is rewritten and shown for review">
+      <div class="win"><i></i><i></i><i></i><span id="appname">Any text box</span></div>
+      <div class="body">
+        <div class="draft" id="draft"></div>
+        <div class="imp" id="imp"></div>
+      </div>
+      <div class="q" id="q"><b>To get a better answer, consider adding:</b> what is the preferred length or word count for the cover letter?</div>
+      <div class="bar">
+        <span class="hint" id="hint">Draft</span>
+        <button class="pill" id="keep" hidden tabindex="-1">Keep original <kbd>Esc</kbd></button>
+        <button class="pill main" id="forge" tabindex="-1">Rewrite <kbd style="background:rgba(0,0,0,.12);border-color:rgba(0,0,0,.2)">Ctrl+Alt+P</kbd></button>
+      </div>
+      <div class="done" id="done">Pasted. Nothing was sent.</div>
+      <svg class="cursor" id="cur" viewBox="0 0 24 24"><path d="M4 2l15 9-6.5 1.7L9.5 19z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+</header>
+
+<section class="how light" id="how" data-th="l">
+  <div class="pin"><div class="wrap">
+    <h2 class="sr">How it works</h2>
+    <div class="hd">
+      <div class="num" id="num">01</div>
+      <div class="txt" id="steps">
+        <div class="step on"><h3>Type it rough.</h3><p>In a browser chat, VS Code, Word, email or Notepad. No extension, no plugin, no second window.</p></div>
+        <div class="step"><h3>Press the hotkey.</h3><p>Ctrl+Alt+P rewrites the whole box. Add Shift to rewrite only what you selected.</p></div>
+        <div class="step"><h3>Read the rewrite.</h3><p>It opens in a review window next to your original. Edit it, answer its questions, or run it again.</p></div>
+        <div class="step"><h3>Check every change.</h3><p>Removed words in red, added words in green. You decide what happens next.</p></div>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="layer on"><div class="nw"><div class="t"><i></i><i></i><i></i><span>Notepad</span></div><p id="tw"></p></div></div>
+      <div class="layer"><div class="nw dim"><div class="t"><i></i><i></i><i></i><span>Notepad</span></div><p>help me write cover letter for software engineering internship at fintech startup mention skills c# python and that i built windows app that rewrites prompts keep brief</p><div class="scan"></div></div>
+        <div class="keyrow"><div class="keys"><kbd>Ctrl</kbd><b>+</b><kbd>Alt</kbd><b>+</b><kbd>P</kbd></div><small>Add Shift to rewrite only the selected text</small></div></div>
+      <div class="layer"><div class="ann"><img class="shot" src="media/review-improved.webp" alt="PromptForge review window showing the improved prompt, a follow-up question and what changed">
+        <span class="tag" style="left:30%;top:1.2%;--i:0">Light, Standard or Detailed</span>
+        <span class="tag" style="left:6%;top:49.5%;--i:1">Your rewrite. Edit it freely</span>
+        <span class="tag" style="left:52%;top:77.5%;--i:2;--c:#85AB8B">Questions it couldn't guess</span>
+        <span class="tag" style="left:3%;top:96.5%;--i:3">Replace or keep: your call</span></div></div>
+      <div class="layer"><div class="ann"><img class="shot" src="media/review-changes.webp" alt="Changes tab with removed words struck in red and added words underlined in green">
+        <span class="tag" style="left:6%;top:45%;--i:0;--c:#e06b6b">Removed</span>
+        <span class="tag" style="left:22%;top:45%;--i:1;--c:#5fb36f">Added</span>
+        <span class="tag" style="left:3%;top:96.5%;--i:2">Ctrl+Enter pastes. Esc keeps yours</span></div></div>
+    </div>
+    <div class="rail" id="dots"><span class="on">Type</span><span>Press</span><span>Read</span><span>Check</span></div>
+  </div></div>
+</section>
+
+<section class="trust pad" id="trust" data-th="d">
+  <div class="wrap">
+    <h2 class="rv">A rewrite you can check before it exists.</h2>
+
+    <div class="tr rv">
+      <div>
+        <h3>It keeps what you wrote.</h3>
+        <p>Links, file paths, names, numbers and anything in quotes are compared after every rewrite. If one went missing, it gets put back, or you get a warning. Pasted code and logs are never touched.</p>
+      </div>
+      <div class="vis">
+        <span class="lab">Example</span>
+        <div class="mono">fix the crash in <span class="keep">src/auth/login.cs</span>, it started after <span class="keep">v2.3.1</span>, keep all <span class="keep">14</span> tests passing</div>
+        <span class="arrow">Each highlighted detail must still be in the rewrite.</span>
+      </div>
+    </div>
+
+    <div class="tr rv">
+      <div>
+        <h3>It asks instead of guessing.</h3>
+        <p>If your draft leaves something out, PromptForge lists it as a question. It does not make up a length, an audience or a deadline. A prompt that was already good comes back unchanged.</p>
+      </div>
+      <div class="vis">
+        <span class="lab">From the review window</span>
+        <div class="qbox"><b>To get a better answer, consider adding:</b>• What is the preferred length or word count for the cover letter?</div>
+        <span class="arrow">Answer it, press Ctrl+R, and it runs again.</span>
+      </div>
+    </div>
+
+    <div class="tr rv">
+      <div>
+        <h3>You press the button.</h3>
+        <p>Replace and Keep original are the same size on purpose. PromptForge never presses Enter for you, and your clipboard is saved before and restored after every rewrite.</p>
+      </div>
+      <div class="vis">
+        <span class="lab">Equal weight</span>
+        <div class="eq"><span class="pill">Keep original <small>Esc</small></span><span class="pill">Replace <small>Ctrl+Enter</small></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="where pad light" data-th="l">
+  <div class="wrap">
+    <h2 class="rv">Works where you already type.</h2>
+    <p class="sub rv" style="margin:0 auto">Anything that is a normal text box.</p>
+    <div class="chips rv"><span>ChatGPT</span><span>Claude</span><span>Gemini</span><span>Perplexity</span><span>VS Code</span><span>Cursor</span><span>Word</span><span>Email</span><span>Notepad</span></div>
+    <p class="fine rv">Terminals are copy-only on purpose, because keystrokes there could run commands. Password fields are refused. Apps running as administrator can't be reached, so you get the result on your clipboard instead.</p>
+  </div>
+</section>
+
+<section class="voice pad" data-th="d">
+  <div class="wrap">
+    <div class="rv">
+      <div class="wave" id="wave" aria-hidden="true"></div>
+      <h2>Talk instead of typing.</h2>
+    </div>
+    <div class="rv">
+      <p class="sub">Tap <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> to start and again to stop, or hold it while you speak. The transcript is typed into the box, or rewritten first.</p>
+      <p class="note" style="margin-top:14px">Uses Groq's Whisper model, so it needs the same free Groq key.</p>
+    </div>
+  </div>
+</section>
+
+<section class="nums pad light" id="proof" data-th="l">
+  <div class="wrap">
+    <div class="c rv"><div class="big"><span data-n="127">0</span></div><p>test drafts in the repo, from vague asks to long, non-English and prompt-injection ones</p></div>
+    <div class="c rv"><div class="big"><span data-n="3">0</span><small>×</small></div><p>each draft is run three times, so one lucky answer can't hide a problem</p></div>
+    <div class="c rv"><div class="big"><span data-n="13">0</span></div><p>held out of day-to-day tuning, kept for final measurements</p></div>
+    <p class="foot rv">You can run it yourself: Settings, Data, Run quality check. Method and results are in <a href="https://github.com/Maneet7805/PromptForge/blob/main/eval/README.md">eval/README.md</a>.</p>
+  </div>
+</section>
+
+<section class="inst pad" id="install" data-th="d">
+  <div class="wrap">
+    <div class="box rv">
+      <div>
+        <h2>Set up in four steps.</h2>
+        <ol>
+          <li><span><b>Get a free key</b> at console.groq.com/keys. No card needed.</span></li>
+          <li><span><b>Download PromptForge.exe</b> and run it. Choose Yes to install. No admin rights, no .NET install.</span></li>
+          <li><span><b>Paste the key</b> in Settings, click Test connection, then Save.</span></li>
+          <li><span><b>Click into any text box,</b> type something rough, press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>.</span></li>
+        </ol>
+      </div>
+      <div class="side">
+        <a class="btn w" href="https://github.com/Maneet7805/PromptForge/releases/latest/download/PromptForge.exe">Download PromptForge.exe</a>
+        <span class="ver">Windows 10 and 11 · MIT licence</span>
+        <p class="small"><b>SmartScreen will warn you.</b> The exe isn't code-signed, because that needs a paid certificate. Click More info, then Run anyway. Compare the file with <a href="https://github.com/Maneet7805/PromptForge/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a> if you want to check it.</p>
+        <p class="small">Installed copies check for updates once a day and verify each download against that checksum file.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="faq pad light" id="faq" data-th="l">
+  <div class="wrap">
+    <h2 class="rv">Questions</h2>
+    <details class="rv"><summary>Where does my text go?</summary><p>To the AI provider you chose (Groq by default), only after you press the hotkey. There is no PromptForge server. Your keys are encrypted with Windows DPAPI, and prompt text is never written to the log.</p></details>
+    <details class="rv"><summary>What does it cost?</summary><p>The app is free. Groq's free tier allows 30 requests a minute and 1,000 a day, which is plenty for personal use. If you pick another provider, its own pricing applies.</p></details>
+    <details class="rv"><summary>What if it rewrites my prompt badly?</summary><p>Press Esc and nothing changes. Your original is also kept in the tray menu under Copy last original text.</p></details>
+    <details class="rv"><summary>Can I add my own rules?</summary><p>Yes. In Settings, Requirements, write standing requirements for each kind of task, or for all tasks. They are added word for word to the end of every rewrite and are never sent to the model.</p></details>
+    <details class="rv"><summary>Mac or Linux?</summary><p>Not yet. PromptForge is a Windows 10 and 11 app.</p></details>
+  </div>
+</section>
+
+<section class="close" data-th="d">
+  <div class="wrap rv">
+    <h2>Stop retyping prompts.</h2>
+    <a class="btn w" href="#install">Download for Windows</a>
+  </div>
+</section>
+
+<footer data-th="d">
+  <div class="wrap">
+    <span>PromptForge · MIT · © 2026 Maneet Arvind Mehta</span>
+    <a class="sp" href="https://github.com/Maneet7805/PromptForge">GitHub</a>
+    <a href="https://github.com/Maneet7805/PromptForge/releases">Releases</a>
+    <a href="https://github.com/Maneet7805/PromptForge/blob/main/CHANGELOG.md">Changelog</a>
+  </div>
+</footer>
+
+<script>
+(()=>{
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id);
+
+/* ---------- procedural landscape ---------- */
+const cv=$('bg'),cx=cv.getContext('2d');
+let W=0,H=0,dpr=1,prog=0;
+const rng=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+function mkNoise(seed){const r=rng(seed),t=Array.from({length:512},r);
+  const sm=u=>u*u*(3-2*u);
+  const n=x=>{const i=Math.floor(x),f=x-i;return t[i&511]+(t[(i+1)&511]-t[i&511])*sm(f)};
+  return (x,oct,ridged)=>{let a=1,f=1,s=0,m=0;for(let o=0;o<oct;o++){let v=n(x*f);if(ridged)v=1-Math.abs(2*v-1);s+=v*a;m+=a;a*=.5;f*=2.05}return s/m}}
+const N=[0,1,2,3,4,5].map(i=>mkNoise(11+i*97));
+const LAYERS=6;
+const hx=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const KEYS=[ // top, horizon, glow, near ridge
+ {p:0,  top:hx('#0D1014'),hor:hx('#745D52'),glow:hx('#F2A679'),near:hx('#06070A')},
+ {p:.5, top:hx('#0C1214'),hor:hx('#55625F'),glow:hx('#F5C9A0'),near:hx('#050709')},
+ {p:1,  top:hx('#060A0B'),hor:hx('#26322F'),glow:hx('#E6E2D6'),near:hx('#030505')}];
+const LKEYS=[
+ {top:hx('#BDD9E8'),hor:hx('#FBE8CC'),glow:hx('#FFD59A'),far:hx('#B9D3C4'),near:hx('#5E8F63')},
+ {top:hx('#B4D6EA'),hor:hx('#F3F0DA'),glow:hx('#FFE9A8'),far:hx('#A9CDB8'),near:hx('#55885C')},
+ {top:hx('#C6DCE6'),hor:hx('#F6EAD3'),glow:hx('#FFDDA6'),far:hx('#B5CFBF'),near:hx('#5B8A63')}];
+let L=0,LT=0;
+const lerp=(a,b,t)=>a+(b-a)*t, mix=(a,b,t)=>a.map((v,i)=>lerp(v,b[i],t));
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`, rgba=(c,a)=>`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+function pal1(K,p){const k=p<.5?[K[0],K[1],p/.5]:[K[1],K[2],(p-.5)/.5];
+  const f=o=>o.far||o.hor;return {top:mix(k[0].top,k[1].top,k[2]),hor:mix(k[0].hor,k[1].hor,k[2]),far:mix(f(k[0]),f(k[1]),k[2]),glow:mix(k[0].glow,k[1].glow,k[2]),near:mix(k[0].near,k[1].near,k[2])}}
+function pal(p){const d=pal1(KEYS,p);if(L<.002)return d;const l=pal1(LKEYS,p);
+  return {top:mix(d.top,l.top,L),hor:mix(d.hor,l.hor,L),far:mix(d.far,l.far,L),glow:mix(d.glow,l.glow,L),near:mix(d.near,l.near,L)}}
+const stars=Array.from({length:130},(_,i)=>{const r=rng(900+i);return{x:r(),y:r()*.5,s:.4+r()*1.1,a:.3+r()*.7}});
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);draw()}
+function draw(){
+  const P=pal(prog),hy=H*.58;
+  let g=cx.createLinearGradient(0,0,0,hy+H*.05);g.addColorStop(0,rgb(P.top));g.addColorStop(1,rgb(P.hor));
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  const night=Math.max(0,(prog-.35)/.65)*(1-L);document.body.style.setProperty('--ov',(1-L).toFixed(3));
+  cx.fillStyle='#fff';
+  for(const s of stars){cx.globalAlpha=s.a*night*.85;cx.fillRect(s.x*W,s.y*H,s.s,s.s)}
+  cx.globalAlpha=1;
+  // sun to moon
+  const sx=W*(.68-prog*.18), sy=hy-H*(.02+prog*.30), R=lerp(70,26,Math.min(1,prog*1.6));
+  g=cx.createRadialGradient(sx,sy,0,sx,sy,R*7);g.addColorStop(0,rgba(P.glow,.42*(1-prog*.45)));g.addColorStop(1,rgba(P.glow,0));
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  cx.fillStyle=rgba(P.glow,prog<.5?.9:.92);cx.beginPath();cx.arc(sx,sy,R*.34,0,6.283);cx.fill();
+  // ridges
+  for(let i=0;i<LAYERS;i++){
+    const t=i/(LAYERS-1),col=mix(P.far,P.near,Math.pow(t,.7)*.97+.03);
+    const base=hy+H*(.015+i*.05)-prog*H*(.01+i*.03);
+    const amp=H*(.17-i*.02), sc=(.0016+i*.0009), off=prog*W*(.04+i*.05)+i*313;
+    cx.beginPath();cx.moveTo(0,H);
+    for(let x=0;x<=W+8;x+=8){
+      const n=N[i]((x+off)*sc,i<3?5:4,i<2);
+      cx.lineTo(x,base-n*amp);
+    }
+    cx.lineTo(W,H);cx.closePath();
+    g=cx.createLinearGradient(0,base-amp,0,base+H*.12);
+    g.addColorStop(0,rgb(col));g.addColorStop(1,rgb(mix(col,P.hor,i<LAYERS-1?.55:.08)));
+    cx.fillStyle=g;cx.fill();
+    if(i===1||i===3){ // mist band
+      const m=cx.createLinearGradient(0,base-amp*.35,0,base+H*.04);
+      m.addColorStop(0,rgba(P.hor,0));m.addColorStop(1,rgba(P.hor,.20));
+      cx.fillStyle=m;cx.fillRect(0,base-amp*.35,W,amp*.35+H*.04);
+    }
+  }
+}
+let raf=0;
+const ths=[...document.querySelectorAll('[data-th]')];
+function theme(){const m=innerHeight*.5;for(const e of ths){const r=e.getBoundingClientRect();if(r.top<=m&&r.bottom>m){LT=e.dataset.th==='l'?1:0;break}}}
+function tick(){raf=0;L+=(LT-L)*.12;if(Math.abs(LT-L)<.004)L=LT;draw();if(L!==LT)raf=requestAnimationFrame(tick)}
+function onScroll(){theme();
+  const max=document.documentElement.scrollHeight-innerHeight;
+  prog=max>0?Math.min(1,Math.max(0,scrollY/max)):0;
+  if(!raf)raf=requestAnimationFrame(tick);
+}
+addEventListener('resize',resize);addEventListener('scroll',()=>{onScroll();pin()},{passive:true});
+
+/* ---------- pinned how-it-works ---------- */
+const how=$('how'),steps=[...document.querySelectorAll('#steps .step')],layers=[...document.querySelectorAll('#stage .layer')],dots=[...document.querySelectorAll('#dots span')],num=$('num'),tw=$('tw');
+const TW='help me write cover letter for software engineering internship at fintech startup mention skills c# python and that i built windows app that rewrites prompts keep brief';
+let cur=-1;
+function pin(){
+  const r=how.getBoundingClientRect(),span=how.offsetHeight-innerHeight;
+  const p=Math.min(.999,Math.max(0,-r.top/span));
+  const x=p*steps.length,k=Math.floor(x),lp=x-k;
+  if(k===0)tw.innerHTML=TW.slice(0,Math.round(TW.length*Math.min(1,lp*1.6)))+'<span class="caret"></span>';
+  else if(cur===0||cur===-1)tw.textContent=TW;
+  if(k===cur)return;cur=k;
+  num.classList.add('flip');setTimeout(()=>{num.textContent='0'+(k+1);num.classList.remove('flip')},180);
+  steps.forEach((e,i)=>e.classList.toggle('on',i===k));
+  layers.forEach((e,i)=>e.classList.toggle('on',i===k));
+  dots.forEach((e,i)=>e.classList.toggle('on',i===k));
+}
+if(reduce)tw.textContent=TW;
+
+/* ---------- reveals + counters ---------- */
+const rv=[...document.querySelectorAll('.rv')];
+if(!reduce&&'IntersectionObserver' in window){
+  rv.forEach(e=>e.classList.add('pre'));
+  const io=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){en.target.classList.remove('pre');io.unobserve(en.target)}}),{threshold:.15});
+  rv.forEach(e=>io.observe(e));
+}
+const cio=new IntersectionObserver(es=>es.forEach(en=>{
+  if(!en.isIntersecting)return;cio.unobserve(en.target);
+  const el=en.target,to=+el.dataset.n;
+  if(reduce){el.textContent=to;return}
+  const t0=performance.now(),d=1400;
+  (function f(t){const k=Math.min(1,(t-t0)/d),e=1-Math.pow(1-k,3);el.textContent=Math.round(to*e);if(k<1)requestAnimationFrame(f)})(t0);
+}),{threshold:.6});
+document.querySelectorAll('[data-n]').forEach(e=>cio.observe(e));
+
+/* ---------- waveform ---------- */
+const wave=$('wave');
+for(let i=0;i<44;i++){const b=document.createElement('i');
+  b.style.setProperty('--h',(25+Math.abs(Math.sin(i*.55))*65+Math.random()*10)+'%');
+  b.style.animationDelay=(-Math.random()*1.2)+'s';wave.appendChild(b)}
+
+/* ---------- hero demo ---------- */
+const TEXT='help me write cover letter for software engineering internship at fintech startup mention skills c# python and that i built windows app that rewrites prompts keep brief';
+const IMP=['Help me write a <mark>concise</mark> cover letter for a software engineering internship at a fintech startup. Mention my skills in C# and Python, and that I built a Windows app that rewrites prompts. <mark>Keep it brief.</mark>'];
+const draft=$('draft'),imp=$('imp'),q=$('q'),forge=$('forge'),keep=$('keep'),done=$('done'),hint=$('hint'),cur_=$('cur'),comp=$('comp');
+comp.addEventListener('animationend',()=>{comp.classList.remove('rise');comp.style.opacity=1});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let token=0,visible=true;
+new IntersectionObserver(e=>{visible=e[0].isIntersecting}).observe(comp);
+function reset(){
+  draft.className='draft';draft.textContent='';imp.className='imp';imp.innerHTML='';q.className='q';done.className='done';
+  keep.hidden=true;forge.hidden=false;forge.className='pill main';forge.innerHTML='Rewrite <kbd style="background:rgba(0,0,0,.12);border-color:rgba(0,0,0,.2)">Ctrl+Alt+P</kbd>';hint.textContent='Draft';cur_.style.opacity=0;cur_.style.transform='translate(560px,260px)';
+}
+function showFinal(){
+  draft.textContent=TEXT;draft.classList.add('gone');imp.innerHTML='<p>'+IMP[0]+'</p>';imp.classList.add('in');q.classList.add('in');
+  hint.textContent='Review';keep.hidden=false;forge.innerHTML='Replace <kbd style="background:rgba(0,0,0,.12);border-color:rgba(0,0,0,.2)">Ctrl+Enter</kbd>';
+}
+async function cycle(my){
+  const ok=()=>my===token;
+  reset();await sleep(700);if(!ok())return;
+  for(let i=0;i<=TEXT.length;i++){
+    draft.innerHTML=TEXT.slice(0,i).replace(/</g,'&lt;')+'<span class="caret"></span>';
+    await sleep(i%7===0?38:16);if(!ok())return;
+    while(!visible&&ok())await sleep(300);
+  }
+  draft.textContent=TEXT;await sleep(900);if(!ok())return;
+  // cursor to button
+  const cb=comp.getBoundingClientRect(),fb=forge.getBoundingClientRect();
+  cur_.style.opacity=1;await sleep(60);
+  cur_.style.transform=`translate(${fb.left-cb.left+fb.width*.55}px,${fb.top-cb.top+fb.height*.5}px)`;
+  await sleep(1000);if(!ok())return;
+  forge.classList.add('press','heat');hint.textContent='Rewriting…';await sleep(220);forge.classList.remove('press');
+  await sleep(700);if(!ok())return;
+  cur_.style.opacity=0;draft.classList.add('gone');
+  imp.innerHTML='<p>'+IMP[0]+'</p>';imp.classList.add('in');
+  forge.classList.remove('heat');hint.textContent='Review';
+  keep.hidden=false;forge.innerHTML='Replace <kbd style="background:rgba(0,0,0,.12);border-color:rgba(0,0,0,.2)">Ctrl+Enter</kbd>';
+  await sleep(500);q.classList.add('in');
+  await sleep(2800);if(!ok())return;
+  forge.classList.add('press');await sleep(200);forge.classList.remove('press');
+  done.classList.add('in');await sleep(2600);if(!ok())return;
+  comp.style.transition='opacity .6s';comp.style.opacity=.0;await sleep(650);
+  comp.style.opacity=1;if(ok())cycle(my);
+}
+if(reduce){showFinal()}else{cycle(++token)}
+
+/* init */
+resize();onScroll();pin();
+})();
+</script>
+</body>
+</html>
