@@ -20,7 +20,6 @@ internal sealed class TrayContext : ApplicationContext
     private readonly VoiceController _voice;
     private readonly UpdateController _updates;
     private readonly ToolStripMenuItem _updateItem = new("Check for updates");
-    private Action? _balloonAction;
     private readonly ToolStripMenuItem _pause = new("Pause shortcuts") { CheckOnClick = true };
     private readonly ToolStripMenuItem _restore = new("Copy last original text") { Enabled = false };
     private readonly ToolStripMenuItem _shortcutsInfo = new() { Enabled = false };
@@ -42,19 +41,7 @@ internal sealed class TrayContext : ApplicationContext
         };
         _services.Notify = (message, icon) =>
         {
-            _balloonAction = null;
             _tray.ShowBalloonTip(4000, "PromptForge", message, icon);
-        };
-        _services.NotifyClickable = (message, icon, action) =>
-        {
-            _balloonAction = action;
-            _tray.ShowBalloonTip(10000, "PromptForge", message, icon);
-        };
-        _tray.BalloonTipClicked += (_, _) =>
-        {
-            var action = _balloonAction;
-            _balloonAction = null;
-            action?.Invoke();
         };
         _updates.AvailableChanged += () =>
         {
