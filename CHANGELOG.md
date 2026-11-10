@@ -4,6 +4,8 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-10
+
 ### Added
 - When an update is available, a small card offers it (Update now / Later) and then shows download progress with a Cancel button, instead of tray balloons (#134).
 
