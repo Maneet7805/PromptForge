@@ -70,9 +70,18 @@ public class SpeechDetectorTests
     [Fact]
     public void A_trailing_half_sample_is_ignored()
     {
-        // A stream cut off mid-sample leaves one extra byte; the sound before it still counts.
-        var pcm = Tone(1, dbfs: -20).Concat(new byte[] { 0x7F }).ToArray();
-        Assert.Equal(AudioLevel.HasSound, SpeechDetector.Analyze(pcm, Rate));
+        // A stream cut off mid-sample leaves one extra byte. If it were read as a sample, a muted
+        // recording would look like faint sound and become Silent instead of Muted.
+        var pcm = new byte[Rate * 2 + 1];
+        pcm[^1] = 0x7F;
+        Assert.Equal(AudioLevel.Muted, SpeechDetector.Analyze(pcm, Rate));
+    }
+
+    [Fact]
+    public void A_trailing_half_sample_does_not_change_the_result_for_real_sound()
+    {
+        var pcm = Tone(1, dbfs: -20);
+        Assert.Equal(SpeechDetector.Analyze(pcm, Rate), SpeechDetector.Analyze([.. pcm, 0x7F], Rate));
     }
 
     [Theory]
@@ -91,16 +100,38 @@ public class SpeechDetectorTests
         Assert.Equal(AudioLevel.Silent, SpeechDetector.Analyze(ToneAt(rate, 3, dbfs: -65), rate));
     }
 
+    [Theory]
+    [InlineData(8000)]
+    [InlineData(44100)]
+    public void Sound_just_above_the_minimum_is_kept_at_other_sample_rates(int rate)
+    {
+        // 250 ms is above the 200 ms minimum. Frame length must follow the sample rate for this to hold.
+        Assert.Equal(AudioLevel.HasSound, SpeechDetector.Analyze(ToneAt(rate, 0.25, dbfs: -20), rate));
+    }
+
+    [Theory]
+    [InlineData(8000)]
+    [InlineData(44100)]
+    public void Sound_just_below_the_minimum_is_silent_at_other_sample_rates(int rate)
+    {
+        // 150 ms is below the 200 ms minimum.
+        Assert.Equal(AudioLevel.Silent, SpeechDetector.Analyze(ToneAt(rate, 0.15, dbfs: -20), rate));
+    }
+
+    private const int BytesPerSample = 2;
+    private const double ToneHz = 220;
+    private const double FullScale = 32767;
+
     private static byte[] ToneAt(int rate, double seconds, double dbfs)
     {
         var count = (int)(seconds * rate);
-        var amplitude = 32767 * Math.Pow(10, dbfs / 20) * Math.Sqrt(2);
-        var bytes = new byte[count * 2];
+        var amplitude = FullScale * Math.Pow(10, dbfs / 20) * Math.Sqrt(2);
+        var bytes = new byte[count * BytesPerSample];
         for (var i = 0; i < count; i++)
         {
-            var sample = (short)Math.Clamp(amplitude * Math.Sin(2 * Math.PI * 220 * i / rate), short.MinValue, short.MaxValue);
-            bytes[i * 2] = (byte)sample;
-            bytes[i * 2 + 1] = (byte)(sample >> 8);
+            var sample = (short)Math.Clamp(amplitude * Math.Sin(2 * Math.PI * ToneHz * i / rate), short.MinValue, short.MaxValue);
+            bytes[i * BytesPerSample] = (byte)sample;
+            bytes[i * BytesPerSample + 1] = (byte)(sample >> 8);
         }
         return bytes;
     }
