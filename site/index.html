@@ -17,7 +17,7 @@
   --r:18px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:clip}
 body{background:var(--ink);color:var(--text);font-family:Inter,system-ui,sans-serif;font-optical-sizing:auto;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 #bg{position:fixed;inset:0;width:100%;height:100%;z-index:-2;display:block}
 body::before{content:"";position:fixed;inset:0;z-index:-1;opacity:var(--ov,1);background:linear-gradient(180deg,rgba(5,8,13,.30),rgba(5,8,13,.18) 40%,rgba(5,8,13,.40));pointer-events:none}
@@ -71,6 +71,7 @@ mark{background:rgba(244,157,112,.22);color:var(--peach-hi);border-radius:5px;pa
 .comp .q b{color:var(--text);font-weight:600}
 .comp .bar{margin-top:14px;display:flex;align-items:center;gap:10px}
 .comp .bar .hint{font-size:12.5px;color:var(--muted);margin-right:auto}
+@media(max-width:480px){.comp .bar{flex-wrap:wrap;justify-content:flex-end}}
 .pill{height:38px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--text);font:600 14px Inter;display:inline-flex;align-items:center;gap:8px;transition:.25s}
 .pill.main{background:linear-gradient(180deg,var(--peach-hi),var(--peach));color:#2a1409;border-color:transparent}
 .pill.press{transform:scale(.95)}
@@ -546,7 +547,7 @@ let token=0,visible=true;
 new IntersectionObserver(e=>{visible=e[0].isIntersecting}).observe(comp);
 function reset(){
   draft.className='draft';draft.textContent='';imp.className='imp';imp.innerHTML='';q.className='q';done.className='done';
-  keep.hidden=true;forge.hidden=false;forge.className='pill main';forge.innerHTML='Rewrite <kbd style="background:rgba(0,0,0,.12);border-color:rgba(0,0,0,.2)">Ctrl+Alt+P</kbd>';hint.textContent='Draft';cur_.style.opacity=0;cur_.style.transform='translate(560px,260px)';
+  keep.hidden=true;forge.hidden=false;forge.className='pill main';forge.innerHTML='Rewrite <kbd style="background:rgba(0,0,0,.12);border-color:rgba(0,0,0,.2)">Ctrl+Alt+P</kbd>';hint.textContent='Draft';cur_.style.opacity=0;cur_.style.transform='translate('+Math.min(560,comp.clientWidth-40)+'px,260px)';
 }
 function showFinal(){
   draft.textContent=TEXT;draft.classList.add('gone');imp.innerHTML='<p>'+IMP[0]+'</p>';imp.classList.add('in');q.classList.add('in');
