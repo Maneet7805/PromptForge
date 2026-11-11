@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.ExceptionServices;
+using PromptForge.App.Infrastructure;
 using PromptForge.App.Native;
 
 namespace PromptForge.App.UI;
@@ -64,13 +66,16 @@ internal sealed class InstallingForm : Form
     {
         using var form = new InstallingForm(version);
         Exception? error = null;
+        var clock = Stopwatch.StartNew();
         form.Shown += async (_, _) =>
         {
+            Log.Info($"installing window shown visible={form.Visible} bounds={form.Bounds}");
             try { await Task.Run(work); }
             catch (Exception ex) { error = ex; } // rethrown below, once the window is closed
             form.Close();
         };
         form.ShowDialog();
+        Log.Info($"installing window closed ms={clock.ElapsedMilliseconds}");
         if (error is not null) ExceptionDispatchInfo.Capture(error).Throw();
     }
 }
