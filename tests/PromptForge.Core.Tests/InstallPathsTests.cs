@@ -88,6 +88,27 @@ public class InstallPathsTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    [Fact]
+    public void The_updater_flag_skips_the_prompt_when_a_copy_is_already_installed()
+    {
+        Assert.True(InstallPaths.ShouldSkipInstallPrompt([InstallPaths.FromUpdaterFlag], alreadyInstalled: true));
+    }
+
+    [Fact]
+    public void The_updater_flag_does_not_skip_the_prompt_on_a_first_install()
+    {
+        Assert.False(InstallPaths.ShouldSkipInstallPrompt([InstallPaths.FromUpdaterFlag], alreadyInstalled: false));
+    }
+
+    [Theory]
+    [InlineData("--background")]
+    [InlineData("--from-updater-please")]
+    public void Without_the_exact_updater_flag_the_prompt_stays(string arg)
+    {
+        Assert.False(InstallPaths.ShouldSkipInstallPrompt([arg], alreadyInstalled: true));
+        Assert.False(InstallPaths.ShouldSkipInstallPrompt([], alreadyInstalled: true));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

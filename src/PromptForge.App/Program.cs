@@ -30,7 +30,7 @@ internal static class Program
         // A copy run from anywhere else (e.g. the dist folder) offers to install or update itself.
         // A plain build (PromptForge.dll beside the exe) can't be installed by copying the exe, so it is never offered.
         if (!SelfInstaller.IsRunningFromInstallDir && !args.Contains("--portable")
-            && PromptForge.Core.Install.InstallPaths.CanInstallFrom(AppPaths.ExePath) && SelfInstaller.OfferInstall())
+            && PromptForge.Core.Install.InstallPaths.CanInstallFrom(AppPaths.ExePath) && SelfInstaller.OfferInstall(args.Contains(PromptForge.Core.Install.InstallPaths.FromUpdaterFlag)))
             return 0;
 
         using var mutex = new Mutex(initiallyOwned: false, MutexName);

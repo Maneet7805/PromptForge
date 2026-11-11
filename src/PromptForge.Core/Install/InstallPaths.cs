@@ -36,4 +36,15 @@ public static class InstallPaths
         var dir = string.IsNullOrWhiteSpace(exePath) ? null : Path.GetDirectoryName(exePath);
         return dir is null || !File.Exists(Path.Combine(dir, "PromptForge.dll"));
     }
+
+    /// <summary>Passed by the updater when it starts the exe it has already downloaded and checked.</summary>
+    public const string FromUpdaterFlag = "--from-updater";
+
+    /// <summary>
+    /// True when setup may skip its "Update the installed PromptForge?" question: the user already chose
+    /// "Update now" in the update card, the flag says so, and there is an installed copy to update.
+    /// A first install always asks. The caller still applies <see cref="CanInstallFrom"/> before any offer.
+    /// </summary>
+    public static bool ShouldSkipInstallPrompt(IEnumerable<string> args, bool alreadyInstalled) =>
+        alreadyInstalled && args.Contains(FromUpdaterFlag);
 }
