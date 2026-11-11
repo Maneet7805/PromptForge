@@ -162,9 +162,9 @@ internal sealed class UpdateController : IDisposable
 
             card.ShowStarting();
             await Task.Delay(ShowFullBarFor);
-            // The new exe isn't in the install folder, so it offers to update the installed copy,
-            // stops this one, and starts itself, the same path as a manual download.
-            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = dir });
+            // The new exe isn't in the install folder, so it updates the installed copy, stops this one,
+            // and starts itself. The flag tells it the user already chose "Update now", so it doesn't ask again.
+            Process.Start(new ProcessStartInfo(exe, PromptForge.Core.Install.InstallPaths.FromUpdaterFlag) { UseShellExecute = true, WorkingDirectory = dir });
             CloseCard();
         }
         catch (OperationCanceledException)

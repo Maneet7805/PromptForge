@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using PromptForge.App.UI;
 using PromptForge.Core.Install;
 
 namespace PromptForge.App.Infrastructure;
@@ -21,37 +22,29 @@ internal static class SelfInstaller
         string.Equals(Path.GetFullPath(AppPaths.ExePath), Path.GetFullPath(InstalledExe), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Returns true when the caller should exit (installed and launched, or cancelled).</summary>
-    public static bool OfferInstall()
+    public static bool OfferInstall(bool fromUpdater)
     {
         var installed = File.Exists(InstalledExe);
         var version = Application.ProductVersion;
-        var installedVersion = installed ? FileVersionInfo.GetVersionInfo(InstalledExe).ProductVersion ?? "unknown" : null;
-        var question = installed
-            ? $"Update the installed PromptForge ({installedVersion}) to this version ({version})?\n\nYour settings and API keys are kept. A running PromptForge will restart."
-            : $"Install PromptForge {version} for {Environment.UserName}?\n\nIt goes to {InstallDir}, gets a Start menu shortcut and an entry in Settings → Apps, and runs in the system tray. No admin rights needed.";
-        var answer = MessageBox.Show(question + "\n\nChoose No to run this copy without installing.", "PromptForge setup",
-            MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
-        if (answer == DialogResult.Cancel) return true;
-        if (answer == DialogResult.No) return false;
+        if (!InstallPaths.ShouldSkipInstallPrompt(fromUpdater ? [InstallPaths.FromUpdaterFlag] : [], installed))
+        {
+            var installedVersion = installed ? FileVersionInfo.GetVersionInfo(InstalledExe).ProductVersion ?? "unknown" : null;
+            var question = installed
+                ? $"Update the installed PromptForge ({installedVersion}) to this version ({version})?\n\nYour settings and API keys are kept. A running PromptForge will restart."
+                : $"Install PromptForge {version} for {Environment.UserName}?\n\nIt goes to {InstallDir}, gets a Start menu shortcut and an entry in Settings → Apps, and runs in the system tray. No admin rights needed.";
+            var answer = MessageBox.Show(question + "\n\nChoose No to run this copy without installing.", "PromptForge setup",
+                MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
+            if (answer == DialogResult.Cancel) return true;
+            if (answer == DialogResult.No) return false;
+        }
+
+        // Asked before the progress window opens, so no dialog sits on top of it.
+        var autostart = !installed && MessageBox.Show("Start PromptForge automatically when Windows starts?", "PromptForge setup",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 
         try
         {
-            StopRunningInstance();
-            CopyWithRetry(AppPaths.ExePath, InstalledExe);
-            CreateShortcut();
-            WriteInstalledAppsEntry(version);
-            if (!installed)
-            {
-                var autostart = MessageBox.Show("Start PromptForge automatically when Windows starts?", "PromptForge setup",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
-                SetAutostart(autostart);
-            }
-            else if (StartupRegistration.IsEnabledFor(InstalledExe))
-            {
-                SetAutostart(true); // refresh the command line in case it changed
-            }
-            Log.Info($"{(installed ? "updated" : "installed")} version={version}");
-            Process.Start(new ProcessStartInfo(InstalledExe) { UseShellExecute = true, WorkingDirectory = InstallDir });
+            InstallingForm.Run(version, () => Install(installed, version, autostart));
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
@@ -60,6 +53,21 @@ internal static class SelfInstaller
             MessageBox.Show("Couldn't install PromptForge: " + ex.Message, "PromptForge setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return true;
         }
+    }
+
+    /// <summary>Runs on a background thread while the Installing window shows.</summary>
+    private static void Install(bool installed, string version, bool autostart)
+    {
+        StopRunningInstance();
+        CopyWithRetry(AppPaths.ExePath, InstalledExe);
+        CreateShortcut();
+        WriteInstalledAppsEntry(version);
+        if (!installed)
+            SetAutostart(autostart);
+        else if (StartupRegistration.IsEnabledFor(InstalledExe))
+            SetAutostart(true); // refresh the command line in case it changed
+        Log.Info($"{(installed ? "updated" : "installed")} version={version}");
+        Process.Start(new ProcessStartInfo(InstalledExe) { UseShellExecute = true, WorkingDirectory = InstallDir });
     }
 
     /// <summary>Best effort: a missing list entry must not fail an install.</summary>

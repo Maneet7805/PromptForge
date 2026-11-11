@@ -4,6 +4,10 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Changed
+- Setup shows a small "Installing PromptForge" window with a moving bar while it copies files and restarts the app (#146).
+- After "Update now" in the update card, setup no longer asks a second time (#141). This takes effect from the update after 1.6.0, because 1.6.0's updater doesn't pass the new flag.
+
 ## [1.6.0] - 2026-11-10
 
 ### Added
