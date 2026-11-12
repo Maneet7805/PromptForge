@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using PromptForge.App.TextAccess;
 using PromptForge.Core.Diffing;
+using PromptForge.Core.Feedback;
 using PromptForge.Core.Optimization;
 using PromptForge.Core.Settings;
 
@@ -67,12 +69,15 @@ internal sealed class ReviewForm : Form
     private readonly Button _copy = new() { Text = "Copy", AutoSize = true };
     private readonly Button _undoEdits = new() { Text = "Undo my edits", AutoSize = true, Enabled = false };
     private readonly Button _reject = new() { Text = "Keep original (Esc)", AutoSize = true };
+    private readonly Button _report = new() { Text = "Report bad rewrite", AutoSize = true, Enabled = false };
     private readonly TableLayoutPanel _notesRow;
+    private OptimizeMode _runMode;
     private readonly ToolTip _tooltip = new();
 
     public ReviewForm(ReviewContext ctx)
     {
         _ctx = ctx;
+        _runMode = ctx.InitialMode;
         Text = "PromptForge — review";
         Icon = AppIcon.Get();
         StartPosition = FormStartPosition.Manual;
@@ -119,7 +124,7 @@ internal sealed class ReviewForm : Form
         _notesRow.Controls.Add(_details, 0, 1);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8, 6, 8, 8) };
-        buttons.Controls.AddRange([_accept, _copy, _reject, _undoEdits]);
+        buttons.Controls.AddRange([_accept, _copy, _reject, _undoEdits, _report]);
 
         Controls.Add(tabsHost);
         Controls.Add(_notesRow);
@@ -131,6 +136,7 @@ internal sealed class ReviewForm : Form
         _copy.Click += (_, _) => Decide(ReviewAction.Copy);
         _reject.Click += (_, _) => Decide(ReviewAction.Reject);
         _rerun.Click += (_, _) => StartRun();
+        _report.Click += (_, _) => ReportBadRewrite();
         _undoEdits.Click += (_, _) => { if (_result is not null) _improved.Text = EditCheck.ToWindowsNewlines(_result.Prompt); };
         _improved.TextChanged += (_, _) => _undoEdits.Enabled = HasUserEdits();
         _originalBox.Text = ctx.Original.Replace("\r\n", "\n").Replace("\n", "\r\n");
@@ -193,6 +199,7 @@ internal sealed class ReviewForm : Form
         var mode = Enum.Parse<OptimizeMode>((string)_mode.SelectedItem!);
         var task = (TaskType)_task.SelectedIndex;
         var answers = string.IsNullOrWhiteSpace(_details.Text) ? null : new ReviewAnswers(_details.Text.Trim(), [.. _askedQuestions]);
+        _runMode = mode;
         SetWorking(true);
         try
         {
@@ -227,7 +234,7 @@ internal sealed class ReviewForm : Form
         if (working)
         {
             _status.Text = "Optimising… (Esc to cancel)";
-            _accept.Enabled = _copy.Enabled = false;
+            _accept.Enabled = _copy.Enabled = _report.Enabled = false;
         }
     }
 
@@ -238,7 +245,7 @@ internal sealed class ReviewForm : Form
             if (!_askedQuestions.Contains(question)) _askedQuestions.Add(question);
         _improved.Text = EditCheck.ToWindowsNewlines(result.Prompt);
         _undoEdits.Enabled = false;
-        _accept.Enabled = _copy.Enabled = true;
+        _accept.Enabled = _copy.Enabled = _report.Enabled = true;
         if (result.IsUnchanged && _ctx.Mode != CaptureMode.Clipboard && _ctx.Mode != CaptureMode.InsertAtCursor)
             _accept.Text = "Keep as is (Ctrl+Enter)";
 
@@ -264,6 +271,44 @@ internal sealed class ReviewForm : Form
         _notesRow.Visible = true;
         _accept.Enabled = false;
         _copy.Enabled = false;
+        _report.Enabled = false;
+    }
+
+    /// <summary>
+    /// Opens the "Bad rewrite" issue form in the browser. The draft and rewrite go into the link only if the
+    /// user says Yes; nothing is sent, logged or stored, and the user submits the form themselves.
+    /// </summary>
+    private void ReportBadRewrite()
+    {
+        if (_result is null) return;
+        var choice = MessageBox.Show(this,
+            "Open the \"Bad rewrite\" form on GitHub in your browser?\n\n" +
+            "Yes: fill in your draft and the rewrite. This repository is public, so remove anything private before you submit.\n" +
+            "No: open the form with only the version, mode and model.\n\n" +
+            "Nothing is sent until you submit the form yourself.",
+            "PromptForge", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+        if (choice == DialogResult.Cancel) return;
+
+        var include = choice == DialogResult.Yes;
+        var link = BadRewriteLink.Build(Application.ProductVersion.Split('+')[0], _runMode.ToString(), _result.Model,
+            include ? _ctx.Original : null, include ? _result.Prompt : null);
+        if (!link.Url.StartsWith(BadRewriteLink.IssueFormUrl, StringComparison.Ordinal)) return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(link.Url) { UseShellExecute = true });
+            Log.Info($"bad-rewrite form opened textIncluded={link.TextIncluded} truncated={link.Truncated} skippedForSecret={link.SkippedForSecret}");
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"bad-rewrite form failed error={ex.GetType().Name}");
+            MessageBox.Show(this, "Couldn't open your browser.", "PromptForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (link.SkippedForSecret)
+            MessageBox.Show(this, "Your draft or the rewrite looks like it contains a key or token, so the form was opened without them. Paste them in yourself after removing anything private.",
+                "PromptForge", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void RenderNotes(OptimizeResult result, string? note)

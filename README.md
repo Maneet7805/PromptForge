@@ -159,6 +159,7 @@ A typical rewrite uses about 1,200 input tokens, most of which is the cached sys
 - The update check (on by default, Settings → General) asks `api.github.com` once a day which release is newest. It sends no prompt text, settings or keys.
 - API keys are encrypted with Windows DPAPI for your Windows account (`%APPDATA%\PromptForge\secrets.dat`).
 - No prompt history is stored. Logs (`%APPDATA%\PromptForge\logs`, kept 7 days) contain events and timings only: never prompt text, transcripts or keys.
+- "Report bad rewrite" opens a pre-filled GitHub issue form in your browser. Your draft and the rewrite go into the link only if you answer Yes, never if they look like a key, and nothing is sent until you submit the form.
 - Text PromptForge puts on the clipboard is marked to stay out of Windows clipboard history and cloud sync.
 
 ## Troubleshooting
