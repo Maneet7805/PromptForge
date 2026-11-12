@@ -67,6 +67,23 @@ public class PreservationCheckerTests
         var missing = PreservationChecker.FindMissing("title \"Don't Panic\"", "Use the title \"Don\u2019t Panic\".");
         Assert.Empty(missing);
     }
+
+    [Theory]
+    [InlineData("summarise this", "Summarise this in 50 words.", "50")]
+    [InlineData("list sales for the last quarter", "List sales for the last 5 years.", "5")]
+    [InlineData("it takes 3 weeks", "It takes 21 days.", "21")] // arithmetic looks invented; the warning is advice only
+    [InlineData("a tip for a day", "Rate it 4.5 out of 10 points.", "4.5, 10")]
+    [InlineData("a tip for a day", "Rate it out of 10.", "")] // known gap: a number ending a sentence is skipped, same as the quality check
+    public void Numbers_the_draft_never_had_are_found(string draft, string rewrite, string expected) =>
+        Assert.Equal(expected, string.Join(", ", PreservationChecker.FindAddedNumbers(draft, rewrite)));
+
+    [Theory]
+    [InlineData("keep it under 40 lines", "Keep it under 40 lines.")]
+    [InlineData("fix this", "Fix this. Steps:\n1. Read it.\n2. Fix it.")] // list markers are not numbers
+    [InlineData("use python 3.11", "Use Python 3.11 and numpy2.")]
+    [InlineData("a 2026 plan", "Write a 2026 plan; 2026 is the year.")]
+    public void Numbers_that_were_in_the_draft_or_are_not_numbers_are_ignored(string draft, string rewrite) =>
+        Assert.Empty(PreservationChecker.FindAddedNumbers(draft, rewrite));
 }
 
 public class TemplatePlaceholderTests

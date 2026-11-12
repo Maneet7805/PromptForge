@@ -6,6 +6,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ### Added
 - The review window has a "Report bad rewrite" button that opens the GitHub Bad rewrite form in your browser. Your draft and the rewrite are filled in only if you choose Yes, and not at all if they look like they hold a key; you submit the form yourself (#69).
+- The review window warns when a rewrite contains numbers your draft never had (for example "in 50 words"), so you can check them. It's a warning only; the rewrite is unchanged. Because of this, instant mode now opens the review window for those rewrites instead of replacing your text (#79).
 
 ### Fixed
 - A request the provider calls too large is now retried on the same model with a smaller reply budget, instead of sending the fallback the same oversized request (#101).
