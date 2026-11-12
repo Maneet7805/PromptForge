@@ -212,6 +212,12 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
         return 0;
     }
 
+    /// <summary>Extra tokens trimmed on a too-large retry, because the provider's count and ours drift a little.</summary>
+    private const int SizeRetryMargin = 200;
+
+    /// <summary>Below this a shrunk reply budget is too small to hold a rewrite, so the next model is tried instead.</summary>
+    private const int MinShrunkMaxTokens = 500;
+
     private const string JsonReminder = "Respond with only the JSON object described in your instructions.";
 
     private async Task<(ChatResponse Response, ParsedResponse Parsed, LlmEndpoint Endpoint, int Attempts)> CallWithFallbackAsync(
@@ -231,6 +237,7 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             var waitedForRateLimit = false;
             var retriedFormat = false;
             var retriedTruncation = false;
+            var shrunkForSize = false;
             var currentMessages = messages;
 
             while (true)
@@ -257,6 +264,16 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
                     failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
                     retriedTruncation = true;
                     callOptions = callOptions with { MaxTokens = Math.Min(callOptions.MaxTokens * 2, 12_000) };
+                }
+                catch (LlmException ex) when (ex.Kind == LlmErrorKind.TooLarge && !shrunkForSize
+                                              && ex.TokensOverLimit is { } over
+                                              && callOptions.MaxTokens - over - SizeRetryMargin >= MinShrunkMaxTokens)
+                {
+                    // The request is over the provider's limit by the amount the reply budget can cover: ask for less
+                    // output on the same model instead of sending the fallback the same oversized request.
+                    failedCalls.Add($"{endpoint.Model} {Describe(ex)}");
+                    shrunkForSize = true;
+                    callOptions = callOptions with { MaxTokens = callOptions.MaxTokens - over - SizeRetryMargin };
                 }
                 catch (LlmException ex) when (ex.Kind == LlmErrorKind.RateLimit && !waitedForRateLimit
                                               && ex.RetryAfter is { } wait && wait <= options.MaxRateLimitWait)
