@@ -342,8 +342,7 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
         if (evalCase.ExpectQuestions && result.Questions.Count == 0)
             failures.Add("vague draft but no questions for the user");
 
-        var addedNumbers = NumberRegex().Matches(output).Select(m => m.Value).Distinct()
-            .Where(n => !evalCase.Draft.Contains(n, StringComparison.Ordinal)).ToList();
+        var addedNumbers = PreservationChecker.FindAddedNumbers(evalCase.Draft, output);
         if (addedNumbers.Count > 0) failures.Add("added numbers not in the draft: " + string.Join(", ", addedNumbers));
 
         if (evalCase.ExpectMinimalChange && result.Verdict == Verdict.Rewritten && ratio > 1.4)
@@ -590,9 +589,6 @@ public sealed partial class EvalRunner(PromptOptimizer optimizer, ILlmClient cli
 
     [GeneratedRegex(@"\[(?:insert|your|add|specify|describe|enter|fill|tbd|name of)[^\]]{0,40}\]|<(?:insert|your|add|specify)[^>]{0,40}>|\{\{\s*\w+\s*\}\}", RegexOptions.IgnoreCase)]
     private static partial Regex PlaceholderRegex();
-
-    [GeneratedRegex(@"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")]
-    private static partial Regex NumberRegex();
 
     [GeneratedRegex(@"world[- ]class|you are an expert|you are a highly|best practices|step[- ]by[- ]step|\bIMPORTANT\b|\bCRITICAL\b|\bMUST\b", RegexOptions.None)]
     private static partial Regex FillerRegex();

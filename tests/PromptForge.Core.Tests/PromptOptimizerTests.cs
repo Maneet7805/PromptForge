@@ -120,6 +120,26 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task Warns_when_the_rewrite_adds_a_number_the_draft_did_not_have()
+    {
+        var client = new FakeClient(_ => Json("Summarise this article in 50 words."));
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "summarise this article" }, [Primary]);
+
+        Assert.Contains(result.Warnings, w => w.Contains("50"));
+        Assert.Equal("Summarise this article in 50 words.", result.Prompt); // text is left alone
+    }
+
+    [Fact]
+    public async Task No_number_warning_when_the_numbers_come_from_the_draft_or_a_code_block()
+    {
+        var code = "```csharp\nvar x = 99;\n```";
+        var client = new FakeClient(_ => Json("Keep it under 40 lines and explain the code.\n\n[[BLOCK_1]]"));
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "keep it under 40 lines, explain\n" + code }, [Primary]);
+
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("numbers"));
+    }
+
+    [Fact]
     public async Task Falls_back_to_the_next_model_on_rate_limit()
     {
         var client = new FakeClient(call => call.Endpoint.Model == "big-model"

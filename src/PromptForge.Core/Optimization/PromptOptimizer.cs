@@ -155,6 +155,15 @@ public sealed class PromptOptimizer(ILlmClient client, Func<TimeSpan, Cancellati
             }
         }
 
+        // A warning, not a repair: arithmetic on the draft ("3 weeks" as "21 days") looks like an invented number,
+        // and a repair call would cost time and tokens to fix text that may be fine. The user decides.
+        if (parsed.Verdict != Verdict.Unchanged)
+        {
+            var added = PreservationChecker.FindAddedNumbers(masked.Text, parsed.Prompt);
+            if (added.Count > 0)
+                warnings.Add("Check these numbers; they weren't in your draft: " + string.Join(", ", added.Take(8)));
+        }
+
         // Tell the user when the backup model answered: its rewrites of long drafts can be weaker, and a rate limit
         // usually clears within a minute, so re-running may get the main model.
         if (IndexOfEndpoint(endpoints, endpoint) > 0)

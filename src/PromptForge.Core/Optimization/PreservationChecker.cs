@@ -24,6 +24,19 @@ public static partial class PreservationChecker
     }
 
     /// <summary>
+    /// Numbers in the rewrite that the draft doesn't contain, such as a word count or "last 5 years" the user never
+    /// gave. It can't tell an invented number from arithmetic on the draft ("3 weeks" written as "21 days"), and list
+    /// markers like "1." are skipped. The quality check uses this same function, so its results stay comparable.
+    /// </summary>
+    public static IReadOnlyList<string> FindAddedNumbers(string original, string rewritten)
+    {
+        ArgumentNullException.ThrowIfNull(original);
+        ArgumentNullException.ThrowIfNull(rewritten);
+        return AddedNumberRegex().Matches(rewritten).Select(m => m.Value).Distinct()
+            .Where(n => !original.Contains(n, StringComparison.Ordinal)).ToList();
+    }
+
+    /// <summary>
     /// <see cref="FindMissing"/> plus capitalised words (names, months, places). Used by the repair step; the quality
     /// check keeps using <see cref="FindMissing"/> so its pass rates stay comparable across versions.
     /// </summary>
@@ -94,6 +107,10 @@ public static partial class PreservationChecker
     private static string Normalize(string s) => s.Replace("\r\n", "\n").Replace('’', '\'').Replace('‘', '\'');
 
     private static string TrimTrailingPunctuation(string s) => s.TrimEnd('.', ',', ';', ':', '!', '?', ')', ']', '\'', '"');
+
+    // Whole numbers and decimals standing alone; "1." (list marker), "v2" and "3.11.2" don't match.
+    [GeneratedRegex(@"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")]
+    private static partial Regex AddedNumberRegex();
 
     [GeneratedRegex(@"\[\[BLOCK_\d+\]\]")]
     private static partial Regex MarkerRegex();
