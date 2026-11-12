@@ -5,6 +5,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 ## [Unreleased]
 
 ### Fixed
+- A request the provider calls too large is now retried on the same model with a smaller reply budget, instead of sending the fallback the same oversized request (#101).
 - Voice: recordings with only typing, clicks, breathing or room noise are no longer sent for transcription, so they stop turning into words like "Thank you."; a small speech model now checks that someone actually spoke (#66). Very quiet or whispered words may be treated as no speech.
 
 ### Changed

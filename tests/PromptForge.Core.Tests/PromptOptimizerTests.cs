@@ -134,6 +134,47 @@ public class PromptOptimizerTests
     }
 
     [Fact]
+    public async Task A_too_large_request_retries_the_same_model_with_a_smaller_reply_budget()
+    {
+        var bigCalls = 0;
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model" && ++bigCalls == 1
+            ? throw new LlmException(LlmErrorKind.TooLarge, "Request too large. Limit 8000, Requested 8300.")
+            : Json("From the main model."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal("big-model (groq)", result.Model);
+        Assert.Equal(["big-model", "big-model"], client.Calls.Select(c => c.Endpoint.Model));
+        Assert.Equal(client.Calls[0].Options.MaxTokens - 300 - 200, client.Calls[1].Options.MaxTokens);
+    }
+
+    [Fact]
+    public async Task A_too_large_request_the_reply_budget_cannot_cover_goes_to_the_fallback()
+    {
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model"
+            ? throw new LlmException(LlmErrorKind.TooLarge, "Request too large. Limit 8000, Requested 12000.")
+            : Json("From fallback."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal("small-model (groq)", result.Model);
+        Assert.Equal(["big-model", "small-model"], client.Calls.Select(c => c.Endpoint.Model));
+    }
+
+    [Fact]
+    public async Task A_too_large_request_is_only_shrunk_once_per_model()
+    {
+        var client = new FakeClient(call => call.Endpoint.Model == "big-model"
+            ? throw new LlmException(LlmErrorKind.TooLarge, "Request too large. Limit 8000, Requested 8300.")
+            : Json("From fallback."));
+
+        var result = await new PromptOptimizer(client).OptimizeAsync(new OptimizeRequest { Text = "hello there" }, [Primary, Fallback]);
+
+        Assert.Equal("small-model (groq)", result.Model);
+        Assert.Equal(["big-model", "big-model", "small-model"], client.Calls.Select(c => c.Endpoint.Model));
+    }
+
+    [Fact]
     public async Task Waits_briefly_and_retries_when_the_last_endpoint_is_rate_limited()
     {
         var waits = new List<TimeSpan>();

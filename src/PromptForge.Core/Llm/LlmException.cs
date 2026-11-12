@@ -60,6 +60,17 @@ public sealed partial class LlmException : Exception
         }
     }
 
+    /// <summary>How many tokens the request was over the provider's limit, when its error message says ("Limit 8000, Requested 9100" is 1100). Null when it doesn't say or the request fit.</summary>
+    public int? TokensOverLimit
+    {
+        get
+        {
+            var m = LimitRequestedRegex().Match(Message);
+            if (!m.Success || !int.TryParse(m.Groups["limit"].Value, out var limit) || !int.TryParse(m.Groups["req"].Value, out var requested)) return null;
+            return requested > limit ? requested - limit : null;
+        }
+    }
+
     /// <summary>Whether trying another model or provider might succeed.</summary>
     public bool WorthFallingBack => Kind is LlmErrorKind.RateLimit or LlmErrorKind.TooLarge or LlmErrorKind.Server
         or LlmErrorKind.Timeout or LlmErrorKind.Network or LlmErrorKind.ModelNotFound or LlmErrorKind.Truncated
