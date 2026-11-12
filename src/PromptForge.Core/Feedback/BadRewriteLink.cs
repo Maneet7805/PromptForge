@@ -3,6 +3,10 @@ using System.Text;
 namespace PromptForge.Core.Feedback;
 
 /// <summary>The link to open, and what was left out of it so the app can tell the user.</summary>
+/// <remarks>
+/// TODO(Maneet, 13 Nov 2026): temporary, with the "Report bad rewrite" button. Replace or remove it
+/// before a public release (issue #160). <see cref="SecretScanner"/> and the cutting logic can be reused.
+/// </remarks>
 /// <param name="TextIncluded">The draft and rewrite are in the link.</param>
 /// <param name="Truncated">At least one of them was cut to fit.</param>
 /// <param name="SkippedForSecret">The user asked to include text but it looked like it held a credential.</param>

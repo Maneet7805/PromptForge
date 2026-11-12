@@ -278,6 +278,8 @@ internal sealed class ReviewForm : Form
     /// Opens the "Bad rewrite" issue form in the browser. The draft and rewrite go into the link only if the
     /// user says Yes; nothing is sent, logged or stored, and the user submits the form themselves.
     /// </summary>
+    // TODO(Maneet, 13 Nov 2026): temporary. A public GitHub form is only fine while the owner is the only user.
+    // Remove or replace this button before a public release: see issue #160.
     private void ReportBadRewrite()
     {
         if (_result is null) return;
