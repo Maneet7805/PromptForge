@@ -32,6 +32,39 @@ internal sealed class VoiceController(AppServices services, OptimizeController o
     private Keys _mainKey;
     private LlmEndpoint? _endpoint;
 
+    private static ISpeechModel? _speechModel;
+    private static bool _speechModelTried;
+
+    /// <summary>Loaded on first use and kept. Null when it can't load: the loudness check alone still runs.</summary>
+    private static ISpeechModel? SpeechModel()
+    {
+        if (_speechModelTried) return _speechModel;
+        _speechModelTried = true;
+        try
+        {
+            _speechModel = new SileroVad();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"speech model unavailable: {ex.GetType().Name}");
+        }
+        return _speechModel;
+    }
+
+    private static AudioLevel Analyze(byte[] pcm)
+    {
+        try
+        {
+            return SpeechDetector.Analyze(pcm, VoiceRecorder.Format.SampleRate, SpeechModel());
+        }
+        catch (Exception ex)
+        {
+            // Any model failure must not lose the dictation: log the type and use the loudness check.
+            Log.Warn($"speech model failed: {ex.GetType().Name}");
+            return SpeechDetector.Analyze(pcm, VoiceRecorder.Format.SampleRate);
+        }
+    }
+
     public void OnHotkey(Keys mainKey)
     {
         switch (_state)
@@ -138,7 +171,7 @@ internal sealed class VoiceController(AppServices services, OptimizeController o
             }
 
             // Speech-to-text invents words from silence ("Thank you."), so silent clips are never sent.
-            var level = SpeechDetector.Analyze(_recorder.LastPcm, VoiceRecorder.Format.SampleRate);
+            var level = Analyze(_recorder.LastPcm);
             if (level != AudioLevel.HasSound)
             {
                 Log.Info($"voice skipped level={level} seconds={duration.TotalSeconds:0.0}");

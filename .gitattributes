@@ -8,3 +8,6 @@
 
 *.png binary
 *.ico binary
+
+# Embedded speech model: never convert line endings.
+*.onnx binary
