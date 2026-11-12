@@ -278,13 +278,16 @@ internal sealed class ReviewForm : Form
     /// Opens the "Bad rewrite" issue form in the browser. The draft and rewrite go into the link only if the
     /// user says Yes; nothing is sent, logged or stored, and the user submits the form themselves.
     /// </summary>
+    // TODO(Maneet, 13 Nov 2026): temporary. A public GitHub form is only fine while the owner is the only user.
+    // Remove or replace this button before a public release: see issue #160.
     private void ReportBadRewrite()
     {
         if (_result is null) return;
         var choice = MessageBox.Show(this,
-            "Open the \"Bad rewrite\" form on GitHub in your browser?\n\n" +
-            "Yes: fill in your draft and the rewrite. This repository is public, so remove anything private before you submit.\n" +
-            "No: open the form with only the version, mode and model.\n\n" +
+            "Include your draft and the rewrite in the GitHub \"Bad rewrite\" form?\n\n" +
+            "Yes: open the form with both filled in. This repository is public, so remove anything private before you submit.\n" +
+            "No: open the form with only the version, mode and model.\n" +
+            "Cancel: open nothing.\n\n" +
             "Nothing is sent until you submit the form yourself.",
             "PromptForge", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
         if (choice == DialogResult.Cancel) return;
