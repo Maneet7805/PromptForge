@@ -282,9 +282,10 @@ internal sealed class ReviewForm : Form
     {
         if (_result is null) return;
         var choice = MessageBox.Show(this,
-            "Open the \"Bad rewrite\" form on GitHub in your browser?\n\n" +
-            "Yes: fill in your draft and the rewrite. This repository is public, so remove anything private before you submit.\n" +
-            "No: open the form with only the version, mode and model.\n\n" +
+            "Include your draft and the rewrite in the GitHub \"Bad rewrite\" form?\n\n" +
+            "Yes: open the form with both filled in. This repository is public, so remove anything private before you submit.\n" +
+            "No: open the form with only the version, mode and model.\n" +
+            "Cancel: open nothing.\n\n" +
             "Nothing is sent until you submit the form yourself.",
             "PromptForge", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
         if (choice == DialogResult.Cancel) return;
