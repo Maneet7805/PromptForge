@@ -31,6 +31,18 @@ public static class SpeechDetector
     /// <summary>How much sound is needed before a clip counts as possibly containing speech.</summary>
     public static readonly TimeSpan MinSound = TimeSpan.FromMilliseconds(200);
 
+    /// <summary>
+    /// The speech model decides whether there is speech. Loudness can't: typing, clicks and breathing are loud
+    /// enough, and quiet words are not (#66). Only a muted microphone is settled by loudness, and audio the
+    /// model can't take (another sample rate, or no model) keeps the loudness verdict.
+    /// </summary>
+    public static AudioLevel Analyze(ReadOnlySpan<byte> pcm16, int sampleRate, ISpeechModel? model)
+    {
+        var level = Analyze(pcm16, sampleRate);
+        if (level == AudioLevel.Muted || model is null || sampleRate != model.SampleRate) return level;
+        return SpeechRuns.HasSustainedSpeech(model.Probabilities(pcm16)) ? AudioLevel.HasSound : AudioLevel.Silent;
+    }
+
     /// <summary>Classifies 16-bit little-endian mono PCM recorded at <paramref name="sampleRate"/>.</summary>
     public static AudioLevel Analyze(ReadOnlySpan<byte> pcm16, int sampleRate)
     {

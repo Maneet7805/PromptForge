@@ -12,6 +12,12 @@
 
   <ItemGroup>
     <PackageReference Include="DiffPlex" Version="1.9.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Silero VAD v5 (MIT). See THIRD-PARTY-NOTICES.md. -->
+    <EmbeddedResource Include="Voice\silero_vad.onnx" LogicalName="silero_vad.onnx" />
   </ItemGroup>
 
 </Project>

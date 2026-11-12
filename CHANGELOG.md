@@ -4,6 +4,9 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- Voice: recordings with only typing, clicks, breathing or room noise are no longer sent for transcription, so they stop turning into words like "Thank you."; a small speech model now checks that someone actually spoke (#66). Very quiet or whispered words may be treated as no speech.
+
 ### Changed
 - Setup shows a small "Installing PromptForge" window with a moving bar while it copies files and restarts the app (#146).
 - After "Update now" in the update card, setup no longer asks a second time (#141). This takes effect from the update after 1.6.0, because 1.6.0's updater doesn't pass the new flag.
