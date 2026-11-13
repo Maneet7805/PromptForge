@@ -5,6 +5,7 @@ All notable changes to PromptForge are listed here. The format follows [Keep a C
 ## [Unreleased]
 
 ### Added
+- Eval: the "fix my login bug" case now checks that the rewrite stays under 5x the draft, and expects a spelled-out rewrite instead of questions (#165).
 - The review window has a "Report bad rewrite" button that opens the GitHub Bad rewrite form in your browser. Your draft and the rewrite are filled in only if you choose Yes, and not at all if they look like they hold a key; you submit the form yourself (#69).
 - The review window warns when a rewrite contains numbers your draft never had (for example "in 50 words"), so you can check them. It's a warning only; the rewrite is unchanged. Because of this, instant mode now opens the review window for those rewrites instead of replacing your text (#79).
 
