@@ -73,4 +73,35 @@ public class ResponseParserTests
     [InlineData("no change", Verdict.Unchanged)]
     [InlineData("whatever", Verdict.Rewritten)]
     public void Verdict_synonyms(string value, Verdict expected) => Assert.Equal(expected, ResponseParser.ParseVerdict(value));
+
+    [Fact]
+    public void A_single_string_where_a_list_is_expected_becomes_a_one_item_list()
+    {
+        var parsed = ResponseParser.Parse("{\"verdict\":\"rewritten\",\"prompt\":\"p\",\"changes\":\"  Added a goal  \",\"questions\":\"Which file?\"}");
+        Assert.Equal(["Added a goal"], parsed.Changes);
+        Assert.Equal(["Which file?"], parsed.Questions);
+    }
+
+    [Fact]
+    public void A_blank_single_string_gives_an_empty_list()
+    {
+        var parsed = ResponseParser.Parse("{\"verdict\":\"rewritten\",\"prompt\":\"p\",\"changes\":\"   \",\"questions\":\"\"}");
+        Assert.Empty(parsed.Changes);
+        Assert.Empty(parsed.Questions);
+    }
+
+    [Fact]
+    public void Non_string_items_in_a_list_are_skipped()
+    {
+        var parsed = ResponseParser.Parse("{\"verdict\":\"rewritten\",\"prompt\":\"p\",\"changes\":[\"a\",1,null,{\"x\":\"y\"},\"  \",\"b\"]}");
+        Assert.Equal(["a", "b"], parsed.Changes);
+    }
+
+    [Fact]
+    public void A_list_field_that_is_neither_a_string_nor_an_array_gives_an_empty_list()
+    {
+        var parsed = ResponseParser.Parse("{\"verdict\":\"rewritten\",\"prompt\":\"p\",\"changes\":3,\"questions\":{\"a\":\"b\"}}");
+        Assert.Empty(parsed.Changes);
+        Assert.Empty(parsed.Questions);
+    }
 }
